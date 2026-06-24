@@ -1,0 +1,93 @@
+/* Verity design tokens — ported verbatim from the locked MVP prototype.
+   These are the single source of color/typography truth for the renderer. */
+:root {
+  --bg0: #0a0c10;
+  --bg1: #0e1117;
+  --bg2: #13171f;
+  --bg3: #191f29;
+  --bg4: #212834;
+
+  --b0: #1c222c;
+  --b1: #262e3a;
+  --b2: #333d4d;
+
+  --t0: #e6eaf2;
+  --t1: #9aa5b8;
+  --t2: #5c6776;
+  --t3: #3a4252;
+
+  --acc: #5b8cef;
+  --acc-dim: rgba(91, 140, 239, 0.13);
+  --acc-bg: rgba(91, 140, 239, 0.08);
+
+  --ai: #a472f0;
+  --ai-dim: rgba(164, 114, 240, 0.13);
+  --ai-bg: rgba(164, 114, 240, 0.07);
+
+  --ok: #43b581;
+  --ok-dim: rgba(67, 181, 129, 0.13);
+  --mod: #e0a33a;
+  --mod-dim: rgba(224, 163, 58, 0.13);
+  --err: #e5645e;
+  --err-dim: rgba(229, 100, 94, 0.12);
+
+  --font: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg0);
+  color: var(--t0);
+  font-family: var(--font);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes slideU {
+  from {
+    transform: translateY(8px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--b1);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--b2);
+  background-clip: padding-box;
+}

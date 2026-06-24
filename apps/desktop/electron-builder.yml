@@ -1,0 +1,35 @@
+appId: io.verity.app
+productName: Verity
+copyright: Copyright © 2026 Verity
+
+directories:
+  output: release
+  buildResources: build
+
+# The desktop shell ships its bundled main/preload (out/) plus the built renderer.
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  - from: ../renderer/dist
+    to: renderer
+
+# Native module — never asar-pack better-sqlite3's binary.
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+  hardenedRuntime: true
+
+win:
+  target:
+    - nsis
+
+linux:
+  target:
+    - AppImage
+  category: Development
