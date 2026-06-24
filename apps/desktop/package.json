@@ -11,7 +11,7 @@
     "lint": "eslint src",
     "dev": "electron-rebuild -f -w better-sqlite3 && node ./scripts/dev.mjs",
     "start": "electron .",
-    "test": "npm rebuild better-sqlite3 --silent && node --import tsx --test src/**/*.test.ts",
+    "test": "npm rebuild better-sqlite3 --silent && node --import tsx --test 'src/**/*.test.ts'",
     "test:electron-db": "electron-rebuild -f -w better-sqlite3 && pnpm exec electron ./scripts/test-db.cjs",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
