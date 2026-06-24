@@ -1,12 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import type { WorkspaceId } from '@verity/core';
 import { assembleGenerationContext } from './context-assembler.js';
 import { generateStepsFromPrompt } from './step-generator.js';
 
 describe('generateStepsFromPrompt', () => {
   it('returns rule-based steps when no API key is configured', async () => {
     const context = assembleGenerationContext('Checkout flow test', {
-      projectId: 'ws-1' as import('@verity/core').WorkspaceId,
+      projectId: 'ws-1' as WorkspaceId,
       version: 0,
       understandingScore: 0,
       indexedAt: 0,
