@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autonomous Test Workspace — MVP Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Architects+Daughter&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#2B2B2B;--ink2:#6B6862;--line:#C7C4BC;--line2:#B7B4AD;
+  --paper:#ECEAE4;--card:#FFFFFF;--fill:#E4E2DB;--bar:#D8D6CF;
+  --ai:#5B6CF0;--aiDim:#E8EAFC;--ok:#3FA66A;--okDim:#E3F2E9;--warn:#D08A2C;--err:#C7503F;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;--hand:'Caveat',cursive;
+}
+html,body{height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased}
+#root{min-height:100%}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+button{font-family:var(--sans);cursor:pointer}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+
+/* ---- wireframe primitives ---- */
+const Hand=({children,s=17,c='var(--ink)',b=700,style})=>(<span style={{fontFamily:'var(--hand)',fontSize:s,fontWeight:b,color:c,lineHeight:1.1,...style}}>{children}</span>);
+const Note=({children,c='var(--ink2)',s=14.5,style})=>(<span style={{fontFamily:'var(--hand)',fontSize:s,fontWeight:600,color:c,...style}}>{children}</span>);
+const Bar=({w='100%',h=8,c='var(--bar)',r=3,mb=0,style})=>(<div style={{width:w,height:h,background:c,borderRadius:r,marginBottom:mb,flexShrink:0,...style}}/>);
+const Sq=({s=14,c='var(--line2)',r=3,fill='transparent',style})=>(<div style={{width:s,height:s,border:'1.5px solid '+c,borderRadius:r,background:fill,flexShrink:0,...style}}/>);
+function Box({children,dash=false,p=10,style,title,accent}) {
+  return (<div style={{border:(dash?'1.5px dashed var(--line2)':'1.5px solid var(--ink)'),borderRadius:6,background:'var(--card)',padding:p,display:'flex',flexDirection:'column',...style}}>
+    {title&&<div style={{fontFamily:'var(--hand)',fontSize:15,fontWeight:700,color:accent||'var(--ai)',marginBottom:7,letterSpacing:0.3}}>{title}</div>}
+    {children}
+  </div>);
+}
+const Btn=({children,primary,sm,style})=>(<div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:5,height:sm?22:28,padding:sm?'0 9px':'0 13px',borderRadius:5,border:'1.5px solid '+(primary?'var(--ai)':'var(--ink)'),background:primary?'var(--aiDim)':'var(--card)',color:primary?'var(--ai)':'var(--ink)',fontSize:sm?11:12,fontWeight:600,fontFamily:'var(--sans)',whiteSpace:'nowrap',...style}}>{children}</div>);
+const Chip=({children,c='var(--ink2)',bg='var(--fill)',style})=>(<span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:20,background:bg,color:c,fontSize:11,fontWeight:600,fontFamily:'var(--sans)',border:'1px solid var(--line)',...style}}>{children}</span>);
+const Arrow=({down,s=22})=>(<svg width={down?16:s} height={down?s:16} viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>{down?<><path d="M12 4v15"/><path d="M6 13l6 6 6-6"/></>:<><path d="M4 12h15"/><path d="M13 6l6 6-6 6"/></>}</svg>);
+function Window({title,children,w=1180,h}) {
+  return (<div style={{width:w,background:'var(--card)',border:'2px solid var(--ink)',borderRadius:9,overflow:'hidden',boxShadow:'5px 6px 0 rgba(43,43,43,0.10)',display:'flex',flexDirection:'column',height:h}}>
+    <div style={{height:30,background:'#F1EFEA',borderBottom:'2px solid var(--ink)',display:'flex',alignItems:'center',padding:'0 11px',gap:6,flexShrink:0}}>
+      {['#C7503F','#D08A2C','#3FA66A'].map(c=><div key={c} style={{width:10,height:10,borderRadius:'50%',border:'1.5px solid var(--ink)',background:c}}/>)}
+      <Hand s={15} style={{marginLeft:8}}>{title}</Hand>
+      <div style={{flex:1}}/>
+      <Note s={13} c="var(--line2)">desktop app · macOS / Windows</Note>
+    </div>
+    {children}
+  </div>);
+}
+/* tiny line-icon */
+const I=({d,s=14,c='var(--ink2)',sw=1.6})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d={d}/></svg>);
+const ic={folder:'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z',file:'M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V8zM14 3v5h6',git:'M6 3v12M6 15a3 3 0 106 0M18 9a3 3 0 10-6 0M12 9v6',spark:'M13 10V3L4 14h7v7l9-11h-7z',play:'M5 3l14 9-14 9z',bug:'M8 6l4-4 4 4M3.27 10A9 9 0 0121 12M3 17h18M7 7l-3-3M17 7l3-3',box:'M12 2L2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5',brain:'M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96.44 2.5 2.5 0 01-2.96-3.08 3 3 0 01-.34-5.58 2.5 2.5 0 011.32-4.24A2.5 2.5 0 019.5 2z',gear:'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.17V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 8.4l-.06-.06a2 2 0 112.83-2.83'};
+
+/* ============== TAB 0 — IA + JOURNEY ============== */
+const NAV5=[['◧','Workspace','default · 80% of product'],['▤','Projects','connected repos'],['▷','Executions','local run history'],['✦','AI Memory','what AI learned'],['⚙','Settings','adapters · git · model']];
+const JOURNEY=['Connect Repository','Detect Framework','Repository Analysis','Workspace Ready','AI Test Authoring','Local Execution','Review Diff','Commit & Push'];
+const SUBNAV={Repository:'file tree of the real repo',Framework:'detected stack + version','Semantic Tests':'intent-level test list','Recent Files':'jump back in','Git Changes':'staged / unstaged'};
+function TabIA() {
+  return (
+    <Window title="Information Architecture &amp; Core Loop">
+      <div style={{padding:'22px 26px',display:'flex',gap:26}}>
+        <div style={{width:330,flexShrink:0}}>
+          <Hand s={20} c="var(--ai)">Top-level navigation</Hand>
+          <Note c="var(--ink2)" style={{display:'block',marginTop:2,marginBottom:12}}>left activity rail — like VS Code / Linear</Note>
+          <Box dash p={12} style={{gap:8}}>
+            {NAV5.map(([g,l,s],i)=>(
+              <div key={l} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,border:'1.5px solid '+(i===0?'var(--ai)':'var(--line)'),background:i===0?'var(--aiDim)':'var(--card)'}}>
+                <span style={{fontSize:16,width:20,textAlign:'center',color:i===0?'var(--ai)':'var(--ink2)'}}>{g}</span>
+                <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:700,color:i===0?'var(--ai)':'var(--ink)'}}>{l}</div><Note s={13}>{s}</Note></div>
+                {i===0&&<Chip c="var(--ai)" bg="#fff">landing</Chip>}
+              </div>
+            ))}
+          </Box>
+          <Hand s={17} c="var(--ai)" style={{display:'block',marginTop:18,marginBottom:7}}>Inside Workspace → left explorers</Hand>
+          <Box dash p={11} style={{gap:5}}>
+            {Object.entries(SUBNAV).map(([k,v])=>(<div key={k} style={{display:'flex',alignItems:'center',gap:8}}><I d={ic.folder} s={13}/><span style={{fontSize:12.5,fontWeight:600}}>{k}</span><Note s={12.5} style={{marginLeft:'auto'}}>{v}</Note></div>))}
+          </Box>
+        </div>
+        <div style={{flex:1}}>
+          <Hand s={20} c="var(--ai)">The core product loop</Hand>
+          <Note c="var(--ink2)" style={{display:'block',marginTop:2,marginBottom:14}}>every output is a real file → in the repo → in the customer's framework → committed via Git</Note>
+          <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:9}}>
+            {JOURNEY.map((j,i)=>(
+              <React.Fragment key={j}>
+                <Box p={0} style={{width:174,height:62,justifyContent:'center',alignItems:'center',borderColor:i>=4&&i<=4?'var(--ai)':'var(--ink)',background:i===4?'var(--aiDim)':'var(--card)'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}><span style={{fontFamily:'var(--hand)',fontSize:15,fontWeight:700,color:'var(--ink2)'}}>{i+1}</span><span style={{fontSize:12.5,fontWeight:700,textAlign:'center'}}>{j}</span></div>
+                </Box>
+                {i<JOURNEY.length-1&&((i+1)%4===0?<div style={{width:'100%',display:'flex',justifyContent:'center',margin:'-2px 0'}}><Arrow down/></div>:<Arrow/>)}
+              </React.Fragment>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:9,marginTop:20}}>
+            {[['Repository First','the repo is home, not a dashboard'],['Collaboration > Generation','AI proposes; you review'],['Human Review Before Modify','nothing changes silently'],['Framework Neutral','Playwright Java now; adapters next'],['Local First','runs on your machine']].map(([t,d])=>(
+              <Box key={t} dash p={10} style={{flex:1}}><Hand s={15} c="var(--ok)">{t}</Hand><Note s={13} style={{marginTop:3}}>{d}</Note></Box>
+            ))}
+          </div>
+          <div style={{marginTop:18,padding:'12px 14px',border:'1.5px solid var(--ai)',borderRadius:7,background:'var(--aiDim)'}}>
+            <Hand s={17} c="var(--ai)">Mental model:</Hand> <Note s={16} c="var(--ink)">“Cursor + VS Code + Claude Code + GitHub Desktop + Playwright Inspector — purpose-built for QA engineers.”</Note>
+          </div>
+        </div>
+      </div>
+    </Window>
+  );
+}
+
+/* ============== TAB 1 — WORKSPACE SHELL ============== */
+const REPO_TREE=[['📁','src/test/java',0],['📁','pages',1],['📄','LoginPage.java',2],['📄','CheckoutPage.java',2],['📄','CartPage.java',2],['📁','tests',1],['📄','LoginTest.java',2],['📄','CheckoutFlowTest.java',2,'new'],['📁','utils',1],['📄','TestBase.java',2]];
+function TabWorkspace() {
+  return (
+    <Window title="Workspace — the IDE shell (default landing · 80% of the product)" h={680}>
+      {/* toolbar */}
+      <div style={{height:34,borderBottom:'1.5px solid var(--ink)',display:'flex',alignItems:'center',gap:10,padding:'0 12px',background:'#F6F4EF',flexShrink:0}}>
+        <I d={ic.box} s={14} c="var(--ai)"/><span style={{fontSize:12.5,fontWeight:700}}>shop-e2e-tests</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:11.5,color:'var(--ink2)'}}><I d={ic.git} s={12}/>main ▾</span>
+        <Btn sm>⟲ Sync</Btn>
+        <div style={{flex:1}}/>
+        <Btn sm primary><I d={ic.play} s={11} c="var(--ai)"/> Run</Btn>
+        <Btn sm><I d={ic.bug} s={11}/> Debug</Btn>
+      </div>
+      <div style={{flex:1,display:'flex',minHeight:0}}>
+        {/* left */}
+        <div style={{width:228,borderRight:'1.5px solid var(--ink)',background:'#F8F7F2',display:'flex',flexDirection:'column',flexShrink:0}}>
+          <div style={{padding:'8px 10px',borderBottom:'1px dashed var(--line2)'}}><Hand s={14} c="var(--ai)">REPOSITORY</Hand>
+            <div style={{marginTop:5}}>{REPO_TREE.map(([g,n,d,tag],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:5,padding:'2px 0',paddingLeft:d*12}}><span style={{fontSize:11}}>{g}</span><span style={{fontSize:11.5,color:tag?'var(--ai)':'var(--ink)',fontWeight:tag?700:400}}>{n}</span>{tag&&<Chip c="var(--ok)" bg="var(--okDim)" style={{marginLeft:'auto',padding:'0 5px',fontSize:9.5}}>{tag}</Chip>}</div>))}</div>
+          </div>
+          {[['FRAMEWORK','Playwright Java · 1.48'],['SEMANTIC TESTS','12 intents'],['RECENT FILES','3'],['GIT CHANGES','2 changed']].map(([t,s])=>(
+            <div key={t} style={{padding:'7px 10px',borderBottom:'1px dashed var(--line2)',display:'flex',alignItems:'center',gap:6}}><Hand s={13.5} c="var(--ai)">{t}</Hand><Note s={12} style={{marginLeft:'auto'}}>{s}</Note></div>
+          ))}
+          <div style={{flex:1}}/>
+          <Note s={13} c="var(--line2)" style={{padding:8,textAlign:'center'}}>‹ all panels collapsible ›</Note>
+        </div>
+        {/* center */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,background:'#fff'}}>
+          <div style={{height:28,borderBottom:'1.5px solid var(--ink)',display:'flex',alignItems:'flex-end',gap:0,paddingLeft:8,background:'#F1EFEA'}}>
+            {['Interactive Browser','Execution','Debug','Code / Diff'].map((t,i)=>(<div key={t} style={{padding:'4px 11px',fontSize:11.5,fontWeight:i===0?700:500,color:i===0?'var(--ink)':'var(--ink2)',background:i===0?'#fff':'transparent',border:i===0?'1.5px solid var(--ink)':'none',borderBottom:'none',borderRadius:'5px 5px 0 0'}}>{t}</div>))}
+          </div>
+          <div style={{flex:1,padding:12,display:'flex',flexDirection:'column',gap:8,minHeight:0}}>
+            <div style={{height:24,display:'flex',alignItems:'center',gap:6,border:'1.5px solid var(--line2)',borderRadius:5,padding:'0 8px'}}><I d="M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20" s={12}/><Note s={13}>https://shop.demo.io/checkout</Note><div style={{flex:1}}/><Chip c="var(--ai)" bg="var(--aiDim)" style={{fontSize:10}}>AI observing</Chip></div>
+            <Box dash p={0} style={{flex:1,minHeight:0,alignItems:'center',justifyContent:'center',gap:8,background:'#FBFAF7'}}>
+              <Hand s={18} c="var(--line2)">Interactive Browser — live e-commerce app</Hand>
+              <Note s={14}>manual + AI interaction · element / DOM / network inspect · execution playback</Note>
+              <div style={{display:'flex',gap:6,marginTop:4}}>{['Login','Cart','Checkout','Payment'].map(p=><div key={p} style={{padding:'4px 10px',border:'1.5px dashed var(--line2)',borderRadius:5,fontSize:11,color:'var(--ink2)'}}>{p}</div>)}</div>
+            </Box>
+          </div>
+        </div>
+        {/* right */}
+        <div style={{width:288,borderLeft:'1.5px solid var(--ink)',background:'#F8F7F2',display:'flex',flexDirection:'column',flexShrink:0}}>
+          <div style={{padding:'8px 11px',borderBottom:'1.5px solid var(--ink)',display:'flex',alignItems:'center',gap:7,background:'var(--aiDim)'}}><I d={ic.spark} s={15} c="var(--ai)"/><Hand s={16} c="var(--ai)">AI TEST STUDIO</Hand></div>
+          <div style={{padding:'9px 11px',borderBottom:'1px dashed var(--line2)'}}>
+            <Note s={13} style={{display:'block',marginBottom:5}}>prompt console</Note>
+            <div style={{border:'1.5px solid var(--ink)',borderRadius:6,padding:'7px 9px',background:'#fff'}}><span style={{fontSize:12,color:'var(--ink2)'}}>“Create checkout flow”</span></div>
+          </div>
+          <div style={{padding:'9px 11px',flex:1,minHeight:0,overflow:'hidden'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}><Note s={13} c="var(--ai)">SEMANTIC STEPS</Note><div style={{flex:1}}/><div style={{display:'flex',border:'1.5px solid var(--ink)',borderRadius:5,overflow:'hidden'}}><span style={{padding:'2px 8px',fontSize:10.5,fontWeight:700,background:'var(--aiDim)',color:'var(--ai)'}}>Semantic</span><span style={{padding:'2px 8px',fontSize:10.5,color:'var(--ink2)'}}>Code</span></div></div>
+            {[1,2,3].map(n=>(<Box key={n} dash p={8} style={{marginBottom:6,gap:3}}><div style={{display:'flex',gap:6,alignItems:'center'}}><Sq s={13} c="var(--ai)" fill="var(--aiDim)"/><span style={{fontSize:11.5,fontWeight:700}}>Step {n} · Intent</span></div><Bar w="80%" h={6} style={{marginLeft:19}}/><Bar w="60%" h={6} style={{marginLeft:19}}/></Box>))}
+            <div style={{padding:'7px 9px',border:'1.5px dashed var(--ai)',borderRadius:6,background:'var(--aiDim)'}}><Note s={13} c="var(--ai)">✦ AI suggestion: add negative-payment case?</Note></div>
+          </div>
+        </div>
+      </div>
+      {/* bottom */}
+      <div style={{height:96,borderTop:'1.5px solid var(--ink)',background:'#F6F4EF',flexShrink:0,display:'flex',flexDirection:'column'}}>
+        <div style={{height:26,display:'flex',alignItems:'center',gap:0,paddingLeft:10,borderBottom:'1px dashed var(--line2)'}}>{['Execution Logs','Console','AI Reasoning','Git Activity'].map((t,i)=>(<div key={t} style={{padding:'4px 11px',fontSize:11.5,fontWeight:i===0?700:500,color:i===0?'var(--ink)':'var(--ink2)',borderBottom:i===0?'2px solid var(--ai)':'none'}}>{t}</div>))}</div>
+        <div style={{flex:1,padding:'7px 12px',display:'flex',flexDirection:'column',gap:4,justifyContent:'center'}}><Bar w="72%" h={6}/><Bar w="84%" h={6}/><Bar w="55%" h={6}/></div>
+      </div>
+    </Window>
+  );
+}
+
+/* ============== TAB 2 — PROJECT WIZARD ============== */
+function TabWizard() {
+  const steps=[
+    {n:1,t:'Project Name',c:<><Note s={13} style={{marginBottom:6,display:'block'}}>name this workspace</Note><div style={{border:'1.5px solid var(--ink)',borderRadius:5,padding:'8px 10px'}}><span style={{fontSize:12,color:'var(--ink2)'}}>shop-e2e-tests</span></div></>},
+    {n:2,t:'Repository Source',c:<div style={{display:'flex',flexDirection:'column',gap:6}}>{[['Local Folder','open from disk'],['GitHub','oauth'],['GitLab',''],['Bitbucket','']].map(([l,s],i)=>(<div key={l} style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',border:'1.5px solid '+(i===1?'var(--ai)':'var(--line)'),borderRadius:5,background:i===1?'var(--aiDim)':'#fff'}}><Sq s={12} c={i===1?'var(--ai)':'var(--line2)'} fill={i===1?'var(--ai)':'#fff'} r={20}/><span style={{fontSize:12,fontWeight:600,color:i===1?'var(--ai)':'var(--ink)'}}>{l}</span><Note s={11.5} style={{marginLeft:'auto'}}>{s}</Note></div>))}</div>},
+    {n:3,t:'Framework Detection',c:<div style={{textAlign:'center',padding:'4px 0'}}><Hand s={26} c="var(--ai)">⟳</Hand><div style={{margintop:4}}><Note s={14}>scanning build files…</Note></div><div style={{marginTop:8,padding:'7px',border:'1.5px solid var(--ok)',borderRadius:6,background:'var(--okDim)'}}><span style={{fontSize:12,fontWeight:700,color:'var(--ok)'}}>✓ Playwright Java 1.48</span></div></div>},
+    {n:4,t:'Repository Analysis',c:<div style={{display:'flex',flexDirection:'column',gap:5}}>{[['Pages','42'],['Tests','187'],['Page Objects','18'],['Utilities','12']].map(([k,v])=>(<div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:12}}><Note s={13}>{k}</Note><span style={{fontWeight:700,fontFamily:'var(--hand)',fontSize:16}}>{v}</span></div>))}<Bar w="96%" h={7} c="var(--ai)" style={{marginTop:4}}/><Note s={12} c="var(--ai)">understanding 96%</Note></div>},
+    {n:5,t:'Workspace Ready',c:<div style={{textAlign:'center',padding:'8px 0'}}><Hand s={30} c="var(--ok)">✓</Hand><Note s={15} style={{display:'block',marginTop:4}}>repo understood —<br/>open the workspace</Note><div style={{marginTop:10}}><Btn primary>Open Workspace →</Btn></div></div>},
+  ];
+  return (
+    <Window title="Project Creation Wizard — connect a repo, detect framework, analyze">
+      <div style={{padding:'24px 26px'}}>
+        <Hand s={19} c="var(--ai)">5-step guided onboarding</Hand>
+        <div style={{display:'flex',gap:12,marginTop:16,alignItems:'stretch'}}>
+          {steps.map((s,i)=>(
+            <React.Fragment key={s.n}>
+              <Box p={12} style={{width:206,gap:4}} title={'STEP '+s.n}>
+                <div style={{fontSize:13.5,fontWeight:700,marginBottom:8}}>{s.t}</div>
+                {s.c}
+              </Box>
+              {i<steps.length-1&&<div style={{display:'flex',alignItems:'center'}}><Arrow/></div>}
+            </React.Fragment>
+          ))}
+        </div>
+        <Note s={14} style={{display:'block',marginTop:16}}>→ no proprietary store: the wizard ends by opening the customer's real repo in the Workspace.</Note>
+      </div>
+    </Window>
+  );
+}
+
+/* ============== TAB 3 — REPO INTELLIGENCE ============== */
+function TabRepoIntel() {
+  return (
+    <Window title="Repository Intelligence — “the platform understands my project”">
+      <div style={{padding:'22px 26px',display:'flex',gap:24}}>
+        <div style={{width:300,flexShrink:0}}>
+          <Box title="DETECTED FRAMEWORK" style={{gap:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}><Sq s={26} c="var(--ai)" fill="var(--aiDim)" r={6}/><div><div style={{fontSize:14,fontWeight:700}}>Playwright Java</div><Note s={13}>version 1.48 · Maven</Note></div></div>
+            <div style={{marginTop:6,paddingTop:8,borderTop:'1px dashed var(--line2)'}}><Note s={12.5} c="var(--ink2)">Adapter active. Framework-neutral —</Note>
+              <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:5}}>{['Selenium Java','Playwright TS','Selenium Py','Cypress','WebdriverIO'].map(f=><Chip key={f} c="var(--line2)" style={{fontSize:10}}>{f} ◌</Chip>)}</div>
+              <Note s={11.5} c="var(--line2)" style={{marginTop:4,display:'block'}}>future adapters</Note>
+            </div>
+          </Box>
+          <Box dash style={{marginTop:14}} title="UNDERSTANDING SCORE">
+            <div style={{display:'flex',alignItems:'center',gap:10}}><Hand s={34} c="var(--ok)">96%</Hand><Note s={13}>structure, deps, conventions &amp; locators mapped with high confidence</Note></div>
+          </Box>
+        </div>
+        <div style={{flex:1}}>
+          <Hand s={19} c="var(--ai)">Repository analysis complete</Hand>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginTop:12}}>
+            {[['Pages','42'],['Existing Tests','187'],['Page Objects','18'],['Utilities','12']].map(([k,v])=>(<Box key={k} dash p={12}><span style={{fontFamily:'var(--hand)',fontSize:30,fontWeight:700}}>{v}</span><Note s={13}>{k}</Note></Box>))}
+          </div>
+          <Hand s={16} c="var(--ai)" style={{display:'block',marginTop:18,marginBottom:8}}>Business flows detected</Hand>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>{['Login','Search Product','Add to Cart','Checkout','Payment','Order Tracking','Refund'].map(f=><div key={f} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 11px',border:'1.5px solid var(--ink)',borderRadius:6}}><I d={ic.box} s={13} c="var(--ai)"/><span style={{fontSize:12,fontWeight:600}}>{f}</span></div>)}</div>
+          <div style={{marginTop:18,padding:'11px 13px',border:'1.5px dashed var(--ai)',borderRadius:7,background:'var(--aiDim)'}}><Note s={14} c="var(--ink)">This panel stays pinned in the Workspace and grows into <b>AI Memory</b> → knowledge graph → self-healing over time.</Note></div>
+        </div>
+      </div>
+    </Window>
+  );
+}
+
+/* ============== TAB 4 — AI STUDIO + SEMANTIC/CODE ============== */
+function TabStudio() {
+  const [view,setView]=useState('sem');
+  const steps=[['User Login','Enter Username','Login Page','Username accepted'],['User Login','Enter Password','Login Page','Field masked'],['Checkout','Click “Place Order”','Checkout Page','Order confirmed']];
+  return (
+    <Window title="AI Test Studio + Semantic ⇄ Code (synchronized)">
+      <div style={{padding:'20px 24px',display:'flex',gap:20}}>
+        <div style={{width:340,flexShrink:0}}>
+          <Box title="AI TEST STUDIO — senior automation engineer" style={{gap:8}}>
+            <Note s={13}>prompt examples:</Note>
+            {['Create checkout flow','Generate negative login tests','Convert Selenium login → Playwright Java','Improve locator stability'].map(p=><div key={p} style={{padding:'6px 9px',border:'1.5px solid var(--line)',borderRadius:5,fontSize:11.5,color:'var(--ink2)'}}>“{p}”</div>)}
+            <div style={{marginTop:4,padding:'8px 10px',border:'1.5px dashed var(--ok)',borderRadius:6,background:'var(--okDim)'}}><Hand s={14} c="var(--ok)">Proposes before applying</Hand><Note s={12.5} style={{display:'block'}}>understands page objects + utilities; never edits files silently</Note></div>
+          </Box>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+            <Hand s={18} c="var(--ai)">Semantic Test Model</Hand><div style={{flex:1}}/>
+            <div style={{display:'flex',border:'1.5px solid var(--ink)',borderRadius:6,overflow:'hidden'}}>
+              <button onClick={()=>setView('sem')} style={{padding:'5px 12px',border:'none',fontSize:12,fontWeight:700,background:view==='sem'?'var(--aiDim)':'#fff',color:view==='sem'?'var(--ai)':'var(--ink2)'}}>Semantic View</button>
+              <button onClick={()=>setView('code')} style={{padding:'5px 12px',border:'none',borderLeft:'1.5px solid var(--ink)',fontSize:12,fontWeight:700,background:view==='code'?'var(--aiDim)':'#fff',color:view==='code'?'var(--ai)':'var(--ink2)'}}>Generated Code</button>
+            </div>
+          </div>
+          {view==='sem'
+            ? <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{display:'grid',gridTemplateColumns:'24px repeat(4,1fr)',gap:8,padding:'0 8px'}}><span/>{['INTENT','ACTION','CONTEXT','EXPECTED'].map(h=><Hand key={h} s={13} c="var(--ai)">{h}</Hand>)}</div>
+                {steps.map((s,i)=>(<div key={i} style={{display:'grid',gridTemplateColumns:'24px repeat(4,1fr)',gap:8,alignItems:'center',border:'1.5px solid var(--ink)',borderRadius:6,padding:'9px 8px',background:'#fff'}}><span style={{fontFamily:'var(--hand)',fontSize:15,fontWeight:700,textAlign:'center'}}>{i+1}</span>{s.map((c,j)=><span key={j} style={{fontSize:12,fontWeight:j===0?700:400,color:j===0?'var(--ink)':'var(--ink2)'}}>{c}</span>)}</div>))}
+                <Note s={13.5} style={{marginTop:4}}>default = human-readable intent. Edits here update the code, and vice-versa.</Note>
+              </div>
+            : <div style={{border:'1.5px solid var(--ink)',borderRadius:6,background:'#FBFAF7',padding:12,fontFamily:'ui-monospace,monospace',fontSize:11.5,color:'var(--ink2)',lineHeight:1.7}}>
+                <div><span style={{color:'var(--ai)'}}>public class</span> CheckoutFlowTest {'{'}</div>
+                <div style={{paddingLeft:16}}><span style={{color:'var(--ai)'}}>@Test</span> <span style={{color:'var(--ink2)'}}>void</span> userCanCheckout() {'{'}</div>
+                <div style={{paddingLeft:32}}>loginPage.enterUsername(<span style={{color:'var(--ok)'}}>"user"</span>);</div>
+                <div style={{paddingLeft:32}}>loginPage.enterPassword(<span style={{color:'var(--ok)'}}>"••••"</span>);</div>
+                <div style={{paddingLeft:32}}>checkoutPage.placeOrder();</div>
+                <div style={{paddingLeft:32}}>assertThat(page).hasText(<span style={{color:'var(--ok)'}}>"Confirmed"</span>);</div>
+                <div style={{paddingLeft:16}}>{'}'}</div><div>{'}'}</div>
+                <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--line2)',fontFamily:'var(--sans)'}}><Chip c="var(--ai)" bg="var(--aiDim)">Current adapter: Playwright Java</Chip> <Note s={12}>committed as a real .java file in the repo</Note></div>
+              </div>}
+        </div>
+      </div>
+    </Window>
+  );
+}
+
+/* ============== TAB 5 — LOCAL EXECUTION ============== */
+function TabExec() {
+  const steps=[['Open login page','pass','381ms'],['Enter credentials','pass','214ms'],['Add item to cart','pass','190ms'],['Proceed to checkout','pass','442ms'],['Submit payment','fail','3.2s'],['Verify order','skip','—']];
+  return (
+    <Window title="Local Execution — Playwright Inspector × Datadog (runs on your machine)">
+      <div style={{height:32,borderBottom:'1.5px solid var(--ink)',display:'flex',alignItems:'center',gap:8,padding:'0 12px',background:'#F6F4EF'}}>
+        <Btn sm primary><I d={ic.play} s={11} c="var(--ai)"/> Run Test</Btn><Btn sm>Run Suite</Btn><Btn sm>Run Folder</Btn><Btn sm>Run All</Btn><Btn sm><I d={ic.bug} s={11}/> Debug</Btn>
+        <div style={{flex:1}}/><Chip c="var(--err)" bg="#F6E3E0">1 failed</Chip><Chip c="var(--ok)" bg="var(--okDim)">4 passed</Chip>
+      </div>
+      <div style={{display:'flex',minHeight:380}}>
+        <div style={{width:280,borderRight:'1.5px solid var(--ink)',padding:'12px',background:'#F8F7F2'}}>
+          <Hand s={15} c="var(--ai)">Execution timeline · semantic steps</Hand>
+          <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:0}}>
+            {steps.map((s,i)=>(<div key={i} style={{display:'flex',gap:9,alignItems:'flex-start'}}><div style={{display:'flex',flexDirection:'column',alignItems:'center'}}><Sq s={18} r={20} c={s[1]==='pass'?'var(--ok)':s[1]==='fail'?'var(--err)':'var(--line2)'} fill={s[1]==='pass'?'var(--okDim)':s[1]==='fail'?'#F6E3E0':'#fff'}/>{i<steps.length-1&&<div style={{width:1.5,height:22,background:'var(--line2)'}}/>}</div><div style={{paddingTop:1}}><div style={{fontSize:12,fontWeight:s[1]==='fail'?700:500,color:s[1]==='fail'?'var(--err)':s[1]==='skip'?'var(--line2)':'var(--ink)'}}>{s[0]}</div><Note s={11.5}>{s[2]} {s[1]==='fail'&&'· assertion error'}</Note></div></div>))}
+          </div>
+        </div>
+        <div style={{flex:1,padding:'12px',display:'flex',flexDirection:'column',gap:10}}>
+          <Hand s={15} c="var(--ai)">Browser state · screenshot</Hand>
+          <Box dash p={0} style={{flex:1,alignItems:'center',justifyContent:'center',background:'#FBFAF7'}}><Hand s={17} c="var(--line2)">screenshot @ failing step</Hand><Note s={13}>visual diff · network panel · DOM</Note></Box>
+        </div>
+        <div style={{width:250,borderLeft:'1.5px solid var(--ink)',padding:'12px',background:'#F8F7F2'}}>
+          <Box p={10} title="RESULT" accent="var(--err)" style={{gap:6,borderColor:'var(--err)'}}>
+            <Hand s={17} c="var(--err)">FAILED</Hand>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>{[['Duration','4.4s'],['Steps','4/6'],['Confidence','94%'],['Flaky','low']].map(([k,v])=>(<div key={k}><Note s={11}>{k}</Note><div style={{fontFamily:'var(--hand)',fontSize:15,fontWeight:700}}>{v}</div></div>))}</div>
+          </Box>
+          <Box dash p={10} style={{marginTop:10}} title="✦ AI REASONING"><Note s={12.5}>Payment API returned 500 — looks like an <b>app bug</b>, not a test issue. Test logic valid.</Note></Box>
+        </div>
+      </div>
+    </Window>
+  );
+}
+
+/* ============== TAB 6 — GIT COMMIT ============== */
+function TabGit() {
+  return (
+    <Window title="Git Integration — review the diff, AI explains, then commit &amp; push">
+      <div style={{display:'flex',minHeight:420}}>
+        <div style={{width:248,borderRight:'1.5px solid var(--ink)',padding:'12px',background:'#F8F7F2'}}>
+          <Hand s={15} c="var(--ai)">Changed files</Hand>
+          <div style={{marginTop:9,display:'flex',flexDirection:'column',gap:4}}>
+            {[['CheckoutFlowTest.java','A','var(--ok)'],['CheckoutPage.java','M','var(--warn)']].map(([f,s,c])=>(<div key={f} style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',border:'1.5px solid var(--line)',borderRadius:5,background:'#fff'}}><span style={{fontFamily:'var(--hand)',fontSize:15,fontWeight:700,color:c,width:14}}>{s}</span><span style={{fontSize:11.5,fontWeight:600}}>{f}</span></div>))}
+          </div>
+          <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:6}}>
+            <Btn primary style={{width:'100%'}}>Commit</Btn>
+            <div style={{display:'flex',gap:6}}><Btn style={{flex:1}}>Branch</Btn><Btn style={{flex:1}}>Push</Btn></div>
+            <Btn style={{width:'100%'}}>Open PR</Btn>
+          </div>
+        </div>
+        <div style={{flex:1,padding:'12px',display:'flex',flexDirection:'column',gap:10}}>
+          <Hand s={15} c="var(--ai)">Diff viewer — CheckoutPage.java</Hand>
+          <div style={{border:'1.5px solid var(--ink)',borderRadius:6,background:'#FBFAF7',padding:'10px 12px',fontFamily:'ui-monospace,monospace',fontSize:11.5,lineHeight:1.8}}>
+            <div style={{background:'#F6E3E0',padding:'1px 6px',borderRadius:3}}><span style={{color:'var(--err)'}}>- </span>getByText("Pay")</div>
+            <div style={{background:'var(--okDim)',padding:'1px 6px',borderRadius:3}}><span style={{color:'var(--ok)'}}>+ </span>getByRole(BUTTON, "Pay now")</div>
+            <div style={{color:'var(--ink2)',paddingLeft:6}}>  // more stable role-based locator</div>
+          </div>
+          <Box p={11} title="✦ AI CHANGE SUMMARY (shown before commit)" style={{gap:5}}>
+            <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
+              <div><Note s={12}>Created</Note><div style={{fontSize:12.5,fontWeight:700}}>CheckoutFlowTest.java</div></div>
+              <div><Note s={12}>Modified</Note><div style={{fontSize:12.5,fontWeight:700}}>CheckoutPage.java</div></div>
+              <div><Note s={12}>Reason</Note><div style={{fontSize:12.5,fontWeight:700}}>Improved locator stability</div></div>
+              <div><Note s={12}>Confidence</Note><div style={{fontFamily:'var(--hand)',fontSize:17,fontWeight:700,color:'var(--ok)'}}>94%</div></div>
+            </div>
+            <div style={{marginTop:6,border:'1.5px solid var(--ink)',borderRadius:5,padding:'7px 9px'}}><Note s={12.5} c="var(--ink2)">commit message ▸ “test: add checkout flow + stabilize pay locator”</Note></div>
+          </Box>
+          <Note s={13.5}>→ user must review before committing · changes land in the customer's Git, not our cloud.</Note>
+        </div>
+      </div>
+    </Window>
+  );
+}
+
+const TABS=[['Architecture & Journey',TabIA],['Workspace Shell',TabWorkspace],['Project Wizard',TabWizard],['Repo Intelligence',TabRepoIntel],['AI Studio + Semantic/Code',TabStudio],['Local Execution',TabExec],['Git Commit',TabGit]];
+function App() {
+  const [tab,setTab]=useState(0);
+  const Screen=TABS[tab][1];
+  return (
+    <div style={{minHeight:'100vh',padding:'0 0 60px'}}>
+      <div style={{position:'sticky',top:0,zIndex:10,background:'rgba(236,234,228,0.95)',backdropFilter:'blur(6px)',borderBottom:'1.5px solid var(--line)',padding:'14px 30px 0'}}>
+        <div style={{display:'flex',alignItems:'baseline',gap:12,marginBottom:12}}>
+          <Hand s={26} c="var(--ink)">Autonomous Test Workspace</Hand>
+          <Chip c="var(--ai)" bg="var(--aiDim)">MVP · Lo-Fi Wireframes</Chip>
+          <Note s={15} c="var(--ink2)">repository-centric AI test engineering workspace — for validation, not visual polish</Note>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+          {TABS.map(([t],i)=>(<button key={t} onClick={()=>setTab(i)} style={{padding:'8px 13px',border:'1.5px solid '+(tab===i?'var(--ink)':'transparent'),borderBottom:tab===i?'1.5px solid var(--card)':'1.5px solid transparent',borderRadius:'7px 7px 0 0',background:tab===i?'var(--card)':'transparent',color:tab===i?'var(--ink)':'var(--ink2)',fontSize:12.5,fontWeight:tab===i?700:600,marginBottom:-1.5,fontFamily:'var(--sans)'}}><span style={{fontFamily:'var(--hand)',fontSize:15,marginRight:6,color:'var(--ai)'}}>{i+1}</span>{t}</button>))}
+        </div>
+      </div>
+      <div style={{display:'flex',justifyContent:'center',padding:'28px 30px'}}>
+        <Screen/>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verity — AI-Native Test Engineering Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#0A0C10;--bg1:#0E1117;--bg2:#13171F;--bg3:#191F29;--bg4:#212834;
+  --b0:#1C222C;--b1:#262E3A;--b2:#333D4D;
+  --t0:#E6EAF2;--t1:#9AA5B8;--t2:#5C6776;--t3:#3A4252;
+  --acc:#5B8CEF;--accDim:rgba(91,140,239,0.13);--accBg:rgba(91,140,239,0.08);
+  --ai:#A472F0;--aiDim:rgba(164,114,240,0.13);--aiBg:rgba(164,114,240,0.07);
+  --ok:#43B581;--okDim:rgba(67,181,129,0.13);
+  --add:#43B581;--addDim:rgba(67,181,129,0.12);
+  --mod:#E0A33A;--modDim:rgba(224,163,58,0.13);
+  --del:#E5645E;--delDim:rgba(229,100,94,0.12);
+  --err:#E5645E;--errDim:rgba(229,100,94,0.12);
+  --warn:#E0A33A;
+  --font:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+html,body,#root{width:100%;height:100%;overflow:hidden;background:var(--bg0);color:var(--t0);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+@keyframes dot{0%,80%,100%{transform:scale(0.5);opacity:0.4}40%{transform:scale(1);opacity:1}}
+@keyframes slideR{from{transform:translateX(8px)}to{transform:translateX(0)}}
+@keyframes slideU{from{transform:translateY(8px)}to{transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0.2}to{opacity:1}}
+@keyframes scaleIn{from{transform:scale(0.98)}to{transform:scale(1)}}
+@keyframes scan{0%{top:0}100%{top:100%}}
+@keyframes barGrow{from{width:0}}
+@keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(91,140,239,0.45)}70%{box-shadow:0 0 0 7px rgba(91,140,239,0)}100%{box-shadow:0 0 0 0 rgba(91,140,239,0)}}
+@keyframes caret{0%,100%{opacity:1}50%{opacity:0}}
+button{font-family:var(--font);cursor:pointer}
+input,textarea{font-family:var(--font)}
+input::placeholder,textarea::placeholder{color:var(--t2)}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--b1);border-radius:5px;border:2px solid transparent;background-clip:padding-box}::-webkit-scrollbar-thumb:hover{background:var(--b2);background-clip:padding-box}
+code,.mono{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+/* ============================ ICONS ============================ */
+const V=({d,s=16,sw=1.6,fill='none',stroke='currentColor',style})=>(
+  <svg width={s} height={s} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={style}>{Array.isArray(d)?d.map((p,i)=><path key={i} d={p}/>):<path d={d}/>}</svg>
+);
+const IC={
+  ws:'M4 4h7v7H4zM13 4h7v7h-7zM13 13h7v7h-7zM4 13h7v7H4z',
+  proj:'M3 7h18M3 12h18M3 17h18',
+  run:'M7 4l12 8-12 8z',
+  mem:'M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0012 2z',
+  settings:'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z',
+  folder:'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z',
+  folderOpen:'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2M3 7v10a2 2 0 002 2h14a2 2 0 002-2l-1.5-6H6.5L3 7z',
+  file:'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6',
+  java:'M12 3c2 2-3 4 0 7M9 14c4 1 7-1 7-1M7 17c5 2 10 0 10 0M10 20c2 1 4 0 4 0',
+  git:'M6 3v12M6 15a3 3 0 106 0M18 9a3 3 0 10-6 0M12 9v6',
+  branch:'M6 3v12M6 15a3 3 0 106 0M18 6a3 3 0 10-6 0c0 6-6 2-6 9',
+  spark:'M13 10V3L4 14h7v7l9-11h-7z',
+  bug:'M8 6l4-4 4 4M3.3 10A9 9 0 0121 12M3 17h18M7 7L4 4M17 7l3-3M7 17l-3 3M17 17l3 3',
+  back:'M15 18l-6-6 6-6',
+  fwd:'M9 18l6-6-6-6',
+  reload:'M3 12a9 9 0 019-9 9 9 0 016.5 2.8L21 8M21 3v5h-5M21 12a9 9 0 01-9 9 9 9 0 01-6.5-2.8L3 16M3 21v-5h5',
+  chev:'M9 6l6 6-6 6',
+  chevD:'M6 9l6 6 6-6',
+  check:'M5 13l4 4L19 7',
+  x:'M6 6l12 12M6 18L18 6',
+  plus:'M12 5v14M5 12h14',
+  arrow:'M5 12h14M13 5l7 7-7 7',
+  search:'M21 21l-5.5-5.5M17 10a7 7 0 11-14 0 7 7 0 0114 0z',
+  globe:'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z',
+  clock:'M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2',
+  layers:'M12 2L2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  flow:'M3 12h4l3-8 4 16 3-8h4',
+  page:'M4 4h16v16H4zM4 9h16M9 9v11',
+  send:'M22 2L11 13M22 2l-7 20-4-9-9-4z',
+  inspect:'M3 3h7v7H3zM14 14l7 7M14 14h4M14 14v4M21 12V5a2 2 0 00-2-2h-7',
+  net:'M5 12a7 7 0 0014 0M5 12a7 7 0 0114 0M12 5v14M5 12h14',
+  terminal:'M4 6l6 6-6 6M13 18h7',
+  diff:'M12 3v18M5 8h4M7 6v4M15 14h4',
+  cmd:'M9 3a3 3 0 010 6H3V6a3 3 0 013-3zM15 3a3 3 0 100 6h6V6a3 3 0 00-3-3zM9 21a3 3 0 010-6H3v3a3 3 0 003 3zM15 21a3 3 0 100-6h6v3a3 3 0 01-3 3z',
+  eye:'M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7zM12 9a3 3 0 100 6 3 3 0 000-6z',
+  link:'M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1',
+  dot:'M12 12h.01',
+  cart:'M6 6h15l-1.5 9h-12zM6 6L5 3H2M9 20a1 1 0 100 2 1 1 0 000-2zM18 20a1 1 0 100 2 1 1 0 000-2z',
+  shield:'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z',
+  pencil:'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z',
+  trash:'M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6',
+  grip:'M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01',
+  sidebar:'M3 4h18v16H3zM9 4v16',
+  panelB:'M3 4h18v16H3zM3 15h18',
+  sync:'M3 12a9 9 0 019-9 9 9 0 016.5 2.8L21 8M21 12a9 9 0 01-9 9 9 9 0 01-6.5-2.8L3 16',
+  list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  zap:'M13 2L3 14h9l-1 8 10-12h-9z',
+  target:'M12 22a10 10 0 100-20 10 10 0 000 20zM12 18a6 6 0 100-12 6 6 0 000 12zM12 14a2 2 0 100-4 2 2 0 000 4z',
+  convert:'M4 7h13l-3-3M20 17H7l3 3',
+};
+const GH=({s=15,c='#E6EAF2'})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0024 12.5C24 5.9 18.6.5 12 .5z"/></svg>);
+const GL=({s=15})=>(<svg width={s} height={s} viewBox="0 0 24 24"><path fill="#E24329" d="M12 21l3.7-11.3H8.3z"/><path fill="#FC6D26" d="M12 21L8.3 9.7H3.2z"/><path fill="#FCA326" d="M3.2 9.7l-1.1 3.4a.8.8 0 00.3.9L12 21z"/><path fill="#E24329" d="M3.2 9.7h5.1L6.1 2.9c-.1-.3-.6-.3-.7 0z"/><path fill="#FC6D26" d="M12 21l3.7-11.3h5.1z"/><path fill="#FCA326" d="M20.8 9.7l1.1 3.4a.8.8 0 01-.3.9L12 21z"/><path fill="#E24329" d="M20.8 9.7h-5.1l2.2-6.8c.1-.3.6-.3.7 0z"/></svg>);
+
+/* ============================ DEMO DATA ============================ */
+const PROJECTS=[
+  {id:1,name:'shop-e2e-tests',repo:'acme/shop-e2e-tests',source:'github',framework:'Playwright Java',fwVer:'1.48',branch:'main',tests:187,pages:42,score:96,ago:'active now',open:true},
+  {id:2,name:'checkout-service-qa',repo:'acme/checkout-service-qa',source:'github',framework:'Selenium Java',fwVer:'4.21',branch:'develop',tests:64,pages:12,score:88,ago:'2 days ago'},
+  {id:3,name:'mobile-web-suite',repo:'gitlab/mobile-web',source:'gitlab',framework:'Playwright TS',fwVer:'1.46',branch:'main',tests:39,pages:9,score:81,ago:'1 week ago'},
+];
+const FILE_TREE=[
+  {t:'folder',name:'src/test/java',d:0,open:true},
+  {t:'folder',name:'com.acme.pages',d:1,open:true},
+  {t:'file',name:'LoginPage.java',d:2},
+  {t:'file',name:'HomePage.java',d:2},
+  {t:'file',name:'CartPage.java',d:2},
+  {t:'file',name:'CheckoutPage.java',d:2,mod:true},
+  {t:'file',name:'PaymentPage.java',d:2},
+  {t:'folder',name:'com.acme.tests',d:1,open:true},
+  {t:'file',name:'LoginTest.java',d:2},
+  {t:'file',name:'SearchTest.java',d:2},
+  {t:'file',name:'CheckoutFlowTest.java',d:2,add:true},
+  {t:'folder',name:'com.acme.utils',d:1},
+  {t:'folder',name:'resources',d:0},
+  {t:'file',name:'pom.xml',d:1},
+];
+const SEMANTIC_TESTS=[
+  {name:'Login — valid credentials',steps:6,status:'pass'},
+  {name:'Login — invalid password',steps:5,status:'pass'},
+  {name:'Search — product results',steps:4,status:'pass'},
+  {name:'Add to cart',steps:5,status:'pass'},
+  {name:'Checkout flow',steps:7,status:'draft'},
+];
+const REPO_PAGES=['Login','Home','Search','Product Details','Cart','Checkout','Payment','Orders'];
+const REPO_FLOWS=['Login','Search Product','Add To Cart','Checkout','Payment','Order Tracking'];
+const FUTURE_ADAPTERS=['Selenium Java','Playwright TypeScript','Selenium Python','Cypress','WebdriverIO'];
+
+const CHECKOUT_STEPS=[
+  {id:1,intent:'Authenticate user',action:'Enter email & password, submit',context:'Login Page',expected:'Redirected to Home, session active',conf:98,
+   code:['loginPage.navigate();','loginPage.enterEmail("user@acme.io");','loginPage.enterPassword(SECRET);','loginPage.submit();','assertThat(homePage.banner()).isVisible();']},
+  {id:2,intent:'Search & open product',action:'Search "wireless headphones", open first result',context:'Search → Product Details',expected:'Product detail page loads',conf:95,
+   code:['homePage.search("wireless headphones");','searchPage.openResult(0);','assertThat(productPage.title()).isVisible();']},
+  {id:3,intent:'Add product to cart',action:'Select quantity 1, click Add to Cart',context:'Product Details',expected:'Cart badge increments to 1',conf:96,
+   code:['productPage.setQuantity(1);','productPage.addToCart();','assertThat(header.cartCount()).hasText("1");']},
+  {id:4,intent:'Proceed to checkout',action:'Open cart, click Checkout',context:'Cart Page',expected:'Checkout form displayed',conf:94,
+   code:['cartPage.open();','cartPage.checkout();','assertThat(checkoutPage.form()).isVisible();']},
+  {id:5,intent:'Enter shipping details',action:'Fill address form with valid data',context:'Checkout Page',expected:'Shipping accepted, payment unlocked',conf:92,
+   code:['checkoutPage.fillShipping(VALID_ADDRESS);','checkoutPage.continueToPayment();','assertThat(paymentPage.form()).isEnabled();']},
+  {id:6,intent:'Submit payment',action:'Enter card, place order',context:'Payment Page',expected:'Order confirmation with number',conf:90,
+   code:['paymentPage.enterCard(TEST_CARD);','paymentPage.placeOrder();','assertThat(confirmPage.orderId()).matches("ORD-\\\\d+");']},
+];
+const EXEC_RUNS=[
+  {id:'r-3041',test:'CheckoutFlowTest',status:'fail',dur:'7.4s',steps:'5/6',when:'just now',branch:'main',reason:'Payment API 500'},
+  {id:'r-3040',test:'LoginTest',status:'pass',dur:'2.1s',steps:'6/6',when:'4 min ago',branch:'main'},
+  {id:'r-3039',test:'SearchTest',status:'pass',dur:'1.8s',steps:'4/4',when:'12 min ago',branch:'main'},
+  {id:'r-3038',test:'AddToCartTest',status:'pass',dur:'2.4s',steps:'5/5',when:'1 hr ago',branch:'feat/cart'},
+  {id:'r-3037',test:'CheckoutFlowTest',status:'pass',dur:'6.9s',steps:'6/6',when:'2 hrs ago',branch:'main'},
+];
+const NAV=[{id:'workspace',icon:IC.ws,label:'Workspace'},{id:'projects',icon:IC.proj,label:'Projects'},{id:'executions',icon:IC.run,label:'Executions'},{id:'memory',icon:IC.mem,label:'AI Memory'},{id:'settings',icon:IC.settings,label:'Settings'}];
+
+/* ============================ SHARED UI ============================ */
+function AdapterBadge({fw='Playwright Java',ver='1.48',sm}){
+  return <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:sm?'2px 8px':'3px 10px',background:'var(--accDim)',border:'1px solid rgba(91,140,239,0.25)',borderRadius:6,fontSize:sm?10.5:11.5,fontWeight:600,color:'var(--acc)'}}><span style={{width:5,height:5,borderRadius:'50%',background:'var(--acc)'}}/>{fw}{ver&&<span style={{color:'rgba(91,140,239,0.6)',fontFamily:'var(--mono)',fontWeight:500}}>{ver}</span>}</span>;
+}
+function Pill({children,c='var(--t1)',bg='var(--bg3)',bd,style}){
+  return <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 8px',background:bg,border:'1px solid '+(bd||'var(--b1)'),borderRadius:20,fontSize:10.5,fontWeight:600,color:c,...style}}>{children}</span>;
+}
+function GitMark({source,s=15}){return source==='gitlab'?<GL s={s}/>:<GH s={s}/>;}
+function statusColor(s){return s==='pass'?'var(--ok)':s==='fail'?'var(--err)':s==='running'?'var(--acc)':'var(--t2)';}
+
+/* ============================ WELCOME ============================ */
+function Welcome({go}){
+  const pts=[
+    {ic:IC.git,t:'Repository-first',d:'Your tests live as real files in your repo, in your framework — committed through Git. Never a proprietary cloud store.'},
+    {ic:IC.spark,t:'AI as a collaborator',d:'A senior automation engineer that reads your page objects and utilities, and proposes changes you review before they land.'},
+    {ic:IC.layers,t:'Framework-neutral',d:'Playwright Java today; Selenium, Cypress, WebdriverIO and more as adapters. The framework is an execution engine, not the product.'},
+  ];
+  return (
+    <div style={{flex:1,display:'flex',overflow:'hidden',position:'relative',background:'radial-gradient(110% 90% at 75% 0%,#101725 0%,#0A0C10 58%)'}}>
+      <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(var(--b0) 1px,transparent 1px),linear-gradient(90deg,var(--b0) 1px,transparent 1px)',backgroundSize:'48px 48px',opacity:0.35,maskImage:'radial-gradient(circle at 70% 25%,black,transparent 70%)',WebkitMaskImage:'radial-gradient(circle at 70% 25%,black,transparent 70%)'}}/>
+      <div style={{flex:1,maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',justifyContent:'center',padding:'40px 60px',position:'relative',zIndex:1,overflowY:'auto'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:30}}>
+          <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,var(--acc),var(--ai))',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 22px rgba(91,140,239,0.35)'}}><V d={IC.shield} s={22} stroke="white" sw={2}/></div>
+          <div><div style={{fontSize:20,fontWeight:700,letterSpacing:-0.3}}>Verity</div><div style={{fontSize:12,color:'var(--t2)'}}>AI-Native Test Engineering Workspace</div></div>
+        </div>
+        <div style={{fontSize:38,lineHeight:'44px',fontWeight:700,letterSpacing:-1,maxWidth:600}}>Work alongside a senior automation engineer that <span style={{background:'linear-gradient(120deg,var(--acc),var(--ai))',WebkitBackgroundClip:'text',backgroundClip:'text',WebkitTextFillColor:'transparent'}}>knows your repository.</span></div>
+        <p style={{fontSize:15,lineHeight:'23px',color:'var(--t1)',maxWidth:540,marginTop:18}}>Connect a repo and Verity understands your framework, application, page objects and existing tests. It authors semantic tests as real files — you review every diff, then commit and push. Local-first. Framework-neutral.</p>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,margin:'34px 0',maxWidth:720}}>
+          {pts.map(p=>(<div key={p.t} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:13,padding:'17px 16px'}}>
+            <div style={{width:34,height:34,borderRadius:9,background:'var(--bg3)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:11}}><V d={p.ic} s={17} stroke="var(--acc)"/></div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:6}}>{p.t}</div><div style={{fontSize:12.5,color:'var(--t1)',lineHeight:'17px'}}>{p.d}</div>
+          </div>))}
+        </div>
+        <div style={{display:'flex',gap:12,alignItems:'center'}}>
+          <button onClick={()=>go('create')} style={{height:46,padding:'0 22px',border:'none',borderRadius:10,background:'linear-gradient(135deg,var(--acc),var(--ai))',color:'white',fontSize:14.5,fontWeight:700,display:'flex',alignItems:'center',gap:9,boxShadow:'0 6px 22px rgba(91,140,239,0.3)'}}><V d={IC.plus} s={17} stroke="white" sw={2}/> Connect a repository</button>
+          <button onClick={()=>go('workspace')} style={{height:46,padding:'0 20px',border:'1px solid var(--b2)',borderRadius:10,background:'var(--bg2)',color:'var(--t0)',fontSize:14,fontWeight:600,display:'flex',alignItems:'center',gap:8}}>Open demo workspace <V d={IC.arrow} s={15}/></button>
+        </div>
+        <div style={{marginTop:26,display:'flex',gap:16,fontSize:12,color:'var(--t2)'}}>
+          <span style={{display:'flex',alignItems:'center',gap:5}}><V d={IC.check} s={13} stroke="var(--ok)"/> Local execution</span>
+          <span style={{display:'flex',alignItems:'center',gap:5}}><V d={IC.check} s={13} stroke="var(--ok)"/> Git-native</span>
+          <span style={{display:'flex',alignItems:'center',gap:5}}><V d={IC.check} s={13} stroke="var(--ok)"/> Your framework, your repo</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ WORKSPACE ============================ */
+const PROMPTS=['Create checkout flow test','Generate negative login tests','Convert Selenium login → Playwright Java','Improve locator stability'];
+
+function FileTreeRow({node,onMod}){
+  const pad=8+node.d*15;
+  const isFolder=node.t==='folder';
+  const color=node.add?'var(--add)':node.mod?'var(--mod)':'var(--t1)';
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px 3px '+pad+'px',borderRadius:5,cursor:'pointer',color:isFolder?'var(--t1)':color}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg3)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+      {isFolder?<V d={node.open?IC.chevD:IC.chev} s={12} stroke="var(--t2)"/>:<span style={{width:12}}/>}
+      <V d={isFolder?(node.open?IC.folderOpen:IC.folder):IC.file} s={14} stroke={isFolder?'var(--t2)':color}/>
+      <span style={{fontSize:12,fontFamily:'var(--mono)',fontWeight:isFolder?600:400,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{node.name}</span>
+      {node.add&&<span style={{fontSize:10,fontWeight:700,color:'var(--add)',fontFamily:'var(--mono)'}}>A</span>}
+      {node.mod&&<span style={{fontSize:10,fontWeight:700,color:'var(--mod)',fontFamily:'var(--mono)'}}>M</span>}
+    </div>
+  );
+}
+function Section({icon,title,right,open,onToggle,children}){
+  return (
+    <div style={{borderBottom:'1px solid var(--b0)'}}>
+      <button onClick={onToggle} style={{width:'100%',display:'flex',alignItems:'center',gap:6,padding:'8px 10px',border:'none',background:'transparent',color:'var(--t1)'}}>
+        <V d={open?IC.chevD:IC.chev} s={12} stroke="var(--t2)"/>
+        <V d={icon} s={13} stroke="var(--t2)"/>
+        <span style={{fontSize:11,fontWeight:700,letterSpacing:0.5,textTransform:'uppercase',flex:1,textAlign:'left'}}>{title}</span>
+        {right}
+      </button>
+      {open&&<div style={{padding:'2px 6px 8px'}}>{children}</div>}
+    </div>
+  );
+}
+
+function Workspace({go,project,notify,gitChanges,setGitChanges,setRuns,setLastRun}){
+  const [centerTab,setCenterTab]=useState('browser');
+  const [studioView,setStudioView]=useState('semantic');
+  const [prompt,setPrompt]=useState('');
+  const [phase,setPhase]=useState('idle'); // idle|thinking|streaming|proposed
+  const [steps,setSteps]=useState([]); // revealed CHECKOUT_STEPS
+  const [applied,setApplied]=useState(false);
+  const [bottomTab,setBottomTab]=useState('reasoning');
+  const [logs,setLogs]=useState([]);
+  const [hl,setHl]=useState(-1); // browser highlight index
+  const [exec,setExec]=useState({phase:'idle',steps:[],result:null,active:-1});
+  const [commitOpen,setCommitOpen]=useState(false);
+  const [committed,setCommitted]=useState(false);
+  const [panels,setPanels]=useState({left:true,right:true,bottom:true});
+  const [secOpen,setSecOpen]=useState({repo:true,fw:true,sem:false,git:true});
+  const logRef=useRef(null);
+  const timers=useRef([]);
+  useEffect(()=>()=>timers.current.forEach(clearTimeout),[]);
+  useEffect(()=>{if(logRef.current)logRef.current.scrollTop=logRef.current.scrollHeight;},[logs]);
+  const addLog=(l)=>setLogs(prev=>[...prev,l]);
+
+  const generate=(text)=>{
+    const q=(text||prompt).trim(); if(!q||phase==='thinking'||phase==='streaming')return;
+    timers.current.forEach(clearTimeout); timers.current=[];
+    setPrompt(q); setPhase('thinking'); setSteps([]); setApplied(false); setExec({phase:'idle',steps:[],result:null,active:-1});
+    setLogs([]); setBottomTab('reasoning'); setCenterTab('browser'); setHl(-1);
+    const T=(fn,ms)=>timers.current.push(setTimeout(fn,ms));
+    addLog({t:'ai',m:'Reading repository context — CheckoutPage.java, CartPage.java, TestBase.java'});
+    T(()=>addLog({t:'ai',m:'Matched conventions: JUnit5 · Page Object Model · Playwright Java 1.48'}),700);
+    T(()=>addLog({t:'ai',m:'Mapping intent to existing page objects & locators…'}),1500);
+    T(()=>setPhase('streaming'),2100);
+    CHECKOUT_STEPS.forEach((s,i)=>{
+      T(()=>{ setSteps(prev=>[...prev,s]); setHl(i); addLog({t:'step',m:'Step '+(i+1)+' · '+s.intent+'  ('+s.conf+'%)'}); },2300+i*640);
+    });
+    const end=2300+CHECKOUT_STEPS.length*640+300;
+    T(()=>{ setPhase('proposed'); setHl(-1); addLog({t:'ok',m:'Draft ready — 6 semantic steps. Proposing file changes for review.'}); },end);
+  };
+
+  const apply=()=>{
+    setApplied(true);
+    setGitChanges([
+      {file:'CheckoutFlowTest.java',path:'com.acme.tests',type:'A',reason:'New checkout flow test (6 semantic steps)'},
+      {file:'CheckoutPage.java',path:'com.acme.pages',type:'M',reason:'Improved locator stability — role-based selectors'},
+    ]);
+    setSecOpen(s=>({...s,git:true}));
+    addLog({t:'ok',m:'Applied to working tree. 1 file created, 1 modified. Review in Git Changes.'});
+    notify('Changes applied to working tree — review before committing');
+  };
+
+  const run=()=>{
+    setCenterTab('execution'); setBottomTab('logs');
+    const base=CHECKOUT_STEPS.map(s=>({id:s.id,label:s.intent,status:'wait',dur:''}));
+    setExec({phase:'running',steps:base,result:null,active:0});
+    setLogs([]); addLog({t:'run',m:'$ mvn -Dtest=CheckoutFlowTest test'});
+    timers.current.forEach(clearTimeout); timers.current=[];
+    const T=(fn,ms)=>timers.current.push(setTimeout(fn,ms));
+    const durs=['381ms','642ms','190ms','442ms','268ms','3.21s'];
+    CHECKOUT_STEPS.forEach((s,i)=>{
+      const last=i===CHECKOUT_STEPS.length-1;
+      T(()=>{ setExec(e=>({...e,active:i,steps:e.steps.map((x,j)=>j===i?{...x,status:'running'}:x)})); addLog({t:'run',m:'▶ '+s.intent}); },500+i*820);
+      T(()=>{
+        const st=last?'fail':'pass';
+        setExec(e=>({...e,steps:e.steps.map((x,j)=>j===i?{...x,status:st,dur:durs[i]}:x)}));
+        addLog(last?{t:'err',m:'✗ POST /api/payments → HTTP 500 (expected 200)'}:{t:'ok',m:'✓ '+s.intent+'  '+durs[i]});
+      },500+i*820+520);
+    });
+    const end=500+CHECKOUT_STEPS.length*820+200;
+    T(()=>{
+      setExec(e=>({...e,phase:'done',result:'fail',active:-1}));
+      setBottomTab('reasoning');
+      addLog({t:'err',m:'Run failed — 5/6 steps passed. AI classifying failure…'});
+      const newRun={id:'r-3042',test:'CheckoutFlowTest',status:'fail',dur:'5.1s',steps:'5/6',when:'just now',branch:'main',reason:'Payment API 500'};
+      setRuns(prev=>[newRun,...prev]); setLastRun(newRun);
+    },end);
+  };
+
+  const reset=()=>{ setPrompt(''); setPhase('idle'); setSteps([]); setApplied(false); setExec({phase:'idle',steps:[],result:null,active:-1}); setGitChanges([]); setCommitted(false); setLogs([]); setCenterTab('browser'); };
+
+  const fwShort='Playwright Java';
+  const totalConf=steps.length?Math.round(steps.reduce((a,s)=>a+s.conf,0)/steps.length):0;
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'var(--bg1)'}} data-screen-label="Workspace">
+      {/* toolbar */}
+      <div style={{height:40,borderBottom:'1px solid var(--b0)',background:'var(--bg0)',display:'flex',alignItems:'center',padding:'0 12px',gap:10,flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:7}}><GitMark source={project.source} s={14}/><span style={{fontSize:12.5,fontWeight:600,fontFamily:'var(--mono)'}}>{project.repo}</span></div>
+        <button style={{display:'flex',alignItems:'center',gap:5,height:24,padding:'0 9px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:6,color:'var(--t1)',fontSize:11.5,fontFamily:'var(--mono)'}}><V d={IC.branch} s={12}/>{project.branch}<V d={IC.chevD} s={11}/></button>
+        <button style={{display:'flex',alignItems:'center',gap:5,height:24,padding:'0 9px',background:'transparent',border:'1px solid var(--b1)',borderRadius:6,color:'var(--t1)',fontSize:11.5}}><V d={IC.sync} s={12}/>Synced</button>
+        <AdapterBadge sm/>
+        <div style={{flex:1}}/>
+        {gitChanges.length>0&&!committed&&<button onClick={()=>setCommitOpen(true)} style={{display:'flex',alignItems:'center',gap:6,height:26,padding:'0 11px',background:'var(--bg2)',border:'1px solid var(--b2)',borderRadius:7,color:'var(--t0)',fontSize:12,fontWeight:600}}><V d={IC.git} s={13} stroke="var(--mod)"/>{gitChanges.length} changes</button>}
+        <button onClick={run} disabled={exec.phase==='running'} style={{display:'flex',alignItems:'center',gap:6,height:26,padding:'0 13px',background:exec.phase==='running'?'var(--bg3)':'var(--ok)',border:'none',borderRadius:7,color:exec.phase==='running'?'var(--t2)':'#08130D',fontSize:12,fontWeight:700}}>{exec.phase==='running'?<><div style={{width:11,height:11,border:'2px solid var(--t2)',borderTopColor:'transparent',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>Running</>:<><V d={IC.run} s={12} fill="#08130D" stroke="none"/>Run</>}</button>
+        <button style={{display:'flex',alignItems:'center',gap:6,height:26,padding:'0 11px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:7,color:'var(--t1)',fontSize:12,fontWeight:600}}><V d={IC.bug} s={13}/>Debug</button>
+        <div style={{width:1,height:18,background:'var(--b1)'}}/>
+        <button onClick={()=>setPanels(p=>({...p,left:!p.left}))} title="Toggle left" style={{width:26,height:26,border:'none',background:'transparent',color:panels.left?'var(--t1)':'var(--t3)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.sidebar} s={15}/></button>
+        <button onClick={()=>setPanels(p=>({...p,bottom:!p.bottom}))} title="Toggle bottom" style={{width:26,height:26,border:'none',background:'transparent',color:panels.bottom?'var(--t1)':'var(--t3)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.panelB} s={15}/></button>
+      </div>
+
+      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+        {/* LEFT */}
+        {panels.left&&<div style={{width:248,flexShrink:0,borderRight:'1px solid var(--b0)',background:'var(--bg1)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+          <div style={{flex:1,overflowY:'auto'}}>
+            <Section icon={IC.folder} title="Repository" open={secOpen.repo} onToggle={()=>setSecOpen(s=>({...s,repo:!s.repo}))}>
+              {FILE_TREE.map((n,i)=><FileTreeRow key={i} node={n}/>)}
+            </Section>
+            <Section icon={IC.layers} title="Framework" open={secOpen.fw} onToggle={()=>setSecOpen(s=>({...s,fw:!s.fw}))}>
+              <div style={{padding:'4px 8px',display:'flex',flexDirection:'column',gap:8}}>
+                <AdapterBadge/>
+                <div style={{display:'flex',flexWrap:'wrap',gap:5}}>{['JUnit 5','Maven','Page Object Model','Allure'].map(t=><Pill key={t}>{t}</Pill>)}</div>
+                <div style={{fontSize:11,color:'var(--t2)',lineHeight:'15px'}}>42 pages · 18 page objects · 12 utils · 187 tests indexed</div>
+              </div>
+            </Section>
+            <Section icon={IC.spark} title="Semantic Tests" right={<Pill c="var(--acc)" bg="var(--accDim)" bd="rgba(91,140,239,0.25)">{SEMANTIC_TESTS.length}</Pill>} open={secOpen.sem} onToggle={()=>setSecOpen(s=>({...s,sem:!s.sem}))}>
+              {SEMANTIC_TESTS.map((t,i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:5}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg3)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <div style={{width:6,height:6,borderRadius:'50%',background:t.status==='draft'?'var(--mod)':'var(--ok)',flexShrink:0}}/>
+                <span style={{flex:1,fontSize:11.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.name}</span>
+                <span style={{fontSize:10,color:'var(--t2)',fontFamily:'var(--mono)'}}>{t.steps}</span>
+              </div>))}
+            </Section>
+            <Section icon={IC.git} title="Git Changes" right={gitChanges.length>0&&<Pill c="var(--mod)" bg="var(--modDim)" bd="rgba(224,163,58,0.3)">{gitChanges.length}</Pill>} open={secOpen.git} onToggle={()=>setSecOpen(s=>({...s,git:!s.git}))}>
+              {gitChanges.length===0
+                ? <div style={{padding:'8px',fontSize:11.5,color:'var(--t2)',lineHeight:'16px'}}>Working tree clean. AI-proposed changes appear here for review before commit.</div>
+                : <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                    {gitChanges.map((c,i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 8px',borderRadius:5}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg3)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <span style={{width:14,fontSize:11,fontWeight:700,fontFamily:'var(--mono)',color:c.type==='A'?'var(--add)':'var(--mod)'}}>{c.type}</span>
+                      <V d={IC.file} s={13} stroke={c.type==='A'?'var(--add)':'var(--mod)'}/>
+                      <span style={{flex:1,fontSize:11.5,fontFamily:'var(--mono)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.file}</span>
+                    </div>))}
+                    {!committed&&<button onClick={()=>setCommitOpen(true)} style={{margin:'6px 4px 2px',height:30,border:'none',borderRadius:7,background:'var(--acc)',color:'white',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><V d={IC.git} s={13} stroke="white"/>Review &amp; commit</button>}
+                    {committed&&<div style={{margin:'6px 4px 2px',padding:'7px',borderRadius:7,background:'var(--okDim)',border:'1px solid rgba(67,181,129,0.3)',fontSize:11.5,color:'var(--ok)',fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><V d={IC.check} s={13} stroke="var(--ok)"/>Committed &amp; pushed</div>}
+                  </div>}
+            </Section>
+          </div>
+        </div>}
+
+        {/* CENTER */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,borderRight:panels.right?'1px solid var(--b0)':'none'}}>
+          <div style={{height:34,borderBottom:'1px solid var(--b0)',background:'var(--bg1)',display:'flex',alignItems:'center',paddingLeft:6,flexShrink:0}}>
+            {[['browser','Interactive Browser',IC.globe],['execution','Execution',IC.run],['debug','Debug',IC.bug],['code','Code / Diff',IC.diff]].map(([id,label,icon])=>(
+              <button key={id} onClick={()=>setCenterTab(id)} style={{display:'flex',alignItems:'center',gap:6,height:34,padding:'0 13px',border:'none',borderBottom:'2px solid '+(centerTab===id?'var(--acc)':'transparent'),background:'transparent',color:centerTab===id?'var(--t0)':'var(--t2)',fontSize:12,fontWeight:centerTab===id?600:500}}>
+                <V d={icon} s={13}/>{label}{id==='execution'&&exec.result==='fail'&&<span style={{width:6,height:6,borderRadius:'50%',background:'var(--err)'}}/>}
+              </button>
+            ))}
+          </div>
+          <div style={{flex:1,overflow:'hidden',minHeight:0,display:'flex'}}>
+            {centerTab==='browser'&&<BrowserView phase={phase} hl={hl}/>}
+            {centerTab==='execution'&&<ExecutionView exec={exec} run={run}/>}
+            {centerTab==='debug'&&<DebugView/>}
+            {centerTab==='code'&&<CodeDiffView applied={applied}/>}
+          </div>
+        </div>
+
+        {/* RIGHT — AI STUDIO */}
+        {panels.right&&<AIStudio prompt={prompt} setPrompt={setPrompt} phase={phase} steps={steps} studioView={studioView} setStudioView={setStudioView} generate={generate} applied={applied} apply={apply} reset={reset} totalConf={totalConf} go={go}/>}
+      </div>
+
+      {/* BOTTOM */}
+      {panels.bottom&&<div style={{height:152,flexShrink:0,borderTop:'1px solid var(--b0)',background:'var(--bg0)',display:'flex',flexDirection:'column'}}>
+        <div style={{height:30,display:'flex',alignItems:'center',paddingLeft:6,borderBottom:'1px solid var(--b0)',flexShrink:0}}>
+          {[['logs','Execution Logs'],['console','Console'],['reasoning','AI Reasoning'],['git','Git Activity']].map(([id,label])=>(
+            <button key={id} onClick={()=>setBottomTab(id)} style={{height:30,padding:'0 12px',border:'none',borderBottom:'2px solid '+(bottomTab===id?'var(--acc)':'transparent'),background:'transparent',color:bottomTab===id?'var(--t0)':'var(--t2)',fontSize:11.5,fontWeight:bottomTab===id?600:500}}>{label}{id==='reasoning'&&phase==='streaming'&&<span style={{marginLeft:6,display:'inline-flex',gap:2}}>{[0,1,2].map(i=><span key={i} style={{width:3,height:3,borderRadius:'50%',background:'var(--ai)',display:'inline-block',animation:'dot 1.4s ease '+(i*0.16)+'s infinite'}}/>)}</span>}</button>
+          ))}
+          <div style={{flex:1}}/>
+          <span style={{fontSize:10.5,color:'var(--t2)',fontFamily:'var(--mono)',paddingRight:12}}>local · {project.framework} {project.fwVer}</span>
+        </div>
+        <div ref={logRef} style={{flex:1,overflowY:'auto',padding:'8px 12px',fontFamily:'var(--mono)',fontSize:11.5,lineHeight:'18px'}}>
+          {bottomTab==='reasoning'
+            ? (logs.length===0?<span style={{color:'var(--t2)'}}>AI reasoning trace will appear here when you author a test.</span>
+              : logs.map((l,i)=><div key={i} style={{color:l.t==='ok'?'var(--ok)':l.t==='err'?'var(--err)':l.t==='step'?'var(--ai)':l.t==='run'?'var(--t1)':'var(--t1)',animation:'fadeIn .3s ease'}}>{l.t==='ai'&&<span style={{color:'var(--ai)'}}>✦ </span>}{l.t==='step'&&<span style={{color:'var(--ai)'}}>↳ </span>}{l.m}</div>))
+            : bottomTab==='logs'
+              ? (logs.filter(l=>['run','ok','err'].includes(l.t)).length===0?<span style={{color:'var(--t2)'}}>Run a test to see execution output.</span>:logs.filter(l=>['run','ok','err'].includes(l.t)).map((l,i)=><div key={i} style={{color:l.t==='ok'?'var(--ok)':l.t==='err'?'var(--err)':'var(--t1)'}}>{l.m}</div>))
+              : bottomTab==='git'
+                ? (gitChanges.length===0?<span style={{color:'var(--t2)'}}>No staged changes.</span>:<><div style={{color:'var(--t1)'}}>$ git status</div>{gitChanges.map((c,i)=><div key={i} style={{color:c.type==='A'?'var(--add)':'var(--mod)'}}>{c.type==='A'?'new file:':'modified:'}   {c.path}.{c.file}</div>)}{committed&&<div style={{color:'var(--ok)',marginTop:4}}>✓ committed → pushed to origin/main</div>}</>)
+                : <span style={{color:'var(--t2)'}}>Browser console output (clean).</span>}
+        </div>
+      </div>}
+
+      {commitOpen&&<CommitModal gitChanges={gitChanges} close={()=>setCommitOpen(false)} onCommit={()=>{setCommitOpen(false);setCommitted(true);notify('Committed & pushed to origin/main');addLog({t:'ok',m:'✓ committed & pushed to origin/main'});}}/>}
+    </div>
+  );
+}
+
+/* ---- center: Interactive Browser ---- */
+function BrowserView({phase,hl}){
+  const observing=phase==='thinking'||phase==='streaming';
+  const targets=[
+    {top:'30%',left:'8%',w:'46%',h:'10%',label:'#email'},
+    {top:'46%',left:'62%',w:'30%',h:'12%',label:'.product-card'},
+    {top:'70%',left:'62%',w:'30%',h:'9%',label:'button.add-to-cart'},
+    {top:'82%',left:'8%',w:'40%',h:'9%',label:'a.checkout'},
+    {top:'40%',left:'8%',w:'50%',h:'14%',label:'form.shipping'},
+    {top:'78%',left:'55%',w:'37%',h:'10%',label:'button.place-order'},
+  ];
+  const t=hl>=0?targets[hl%targets.length]:null;
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',background:'var(--bg2)',minWidth:0}}>
+      <div style={{height:30,borderBottom:'1px solid var(--b0)',display:'flex',alignItems:'center',gap:8,padding:'0 10px',flexShrink:0,background:'var(--bg1)'}}>
+        <div style={{display:'flex',gap:2}}>{[IC.back,IC.fwd,IC.reload].map((d,i)=><button key={i} style={{width:22,height:22,border:'none',background:'transparent',color:'var(--t2)',borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center'}}><V d={d} s={13}/></button>)}</div>
+        <div style={{flex:1,maxWidth:360,height:21,background:'var(--bg3)',border:'1px solid var(--b1)',borderRadius:6,display:'flex',alignItems:'center',padding:'0 8px',gap:6}}><V d={IC.globe} s={11} stroke="var(--t2)"/><span style={{fontSize:10.5,color:'var(--t1)',fontFamily:'var(--mono)'}}>shop.demo.io/checkout</span></div>
+        <div style={{flex:1}}/>
+        {observing&&<Pill c="var(--ai)" bg="var(--aiDim)" bd="rgba(164,114,240,0.3)"><span style={{width:5,height:5,borderRadius:'50%',background:'var(--ai)',animation:'blink 1s infinite'}}/>AI observing DOM</Pill>}
+        <button style={{width:24,height:24,border:'1px solid var(--b1)',background:'var(--bg3)',color:'var(--t1)',borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center'}} title="Inspect element"><V d={IC.inspect} s={13}/></button>
+      </div>
+      <div style={{flex:1,position:'relative',overflow:'hidden',background:'#F4F6FA'}}>
+        {/* fake ecommerce app */}
+        <div style={{height:46,background:'#fff',borderBottom:'1px solid #E5E9F0',display:'flex',alignItems:'center',padding:'0 22px',gap:10,justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:24,height:24,borderRadius:6,background:'linear-gradient(135deg,#5B8CEF,#A472F0)'}}/><span style={{fontSize:14,fontWeight:700,color:'#1A2230',fontFamily:'var(--font)'}}>NimbusShop</span></div>
+          <div style={{display:'flex',gap:18,alignItems:'center'}}>{['Home','Deals','Account'].map(x=><span key={x} style={{fontSize:12,color:'#5A6678',fontFamily:'var(--font)'}}>{x}</span>)}<div style={{position:'relative'}}><V d={IC.cart} s={17} stroke="#1A2230"/><span style={{position:'absolute',top:-6,right:-7,width:14,height:14,borderRadius:'50%',background:'#5B8CEF',color:'#fff',fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>1</span></div></div>
+        </div>
+        <div style={{padding:'22px 26px',display:'grid',gridTemplateColumns:'1.2fr 1fr',gap:20}}>
+          <div style={{background:'#fff',borderRadius:12,border:'1px solid #E5E9F0',padding:20}}>
+            <div style={{fontSize:16,fontWeight:700,color:'#1A2230',marginBottom:16,fontFamily:'var(--font)'}}>Checkout</div>
+            {['Email address','Shipping address','City / ZIP'].map((l,i)=>(<div key={l} style={{marginBottom:12}}><div style={{fontSize:11,color:'#7A8698',marginBottom:5,fontFamily:'var(--font)'}}>{l}</div><div style={{height:34,border:'1px solid #DCE2EC',borderRadius:7,background:'#FAFBFD'}}/></div>))}
+            <div style={{height:38,borderRadius:8,background:'#11192A',display:'flex',alignItems:'center',justifyContent:'center',marginTop:6}}><span style={{fontSize:13,fontWeight:600,color:'#fff',fontFamily:'var(--font)'}}>Continue to payment</span></div>
+          </div>
+          <div>
+            <div style={{background:'#fff',borderRadius:12,border:'1px solid #E5E9F0',padding:16,marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:'#1A2230',marginBottom:12,fontFamily:'var(--font)'}}>Order summary</div>
+              <div style={{display:'flex',gap:11,alignItems:'center',marginBottom:12}}><div style={{width:46,height:46,borderRadius:8,background:'#EEF1F6'}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:'#1A2230',fontFamily:'var(--font)'}}>Wireless Headphones</div><div style={{fontSize:11,color:'#7A8698',fontFamily:'var(--font)'}}>Qty 1 · $129.00</div></div></div>
+              <div style={{display:'flex',justifyContent:'space-between',paddingTop:11,borderTop:'1px solid #EEF1F6',fontSize:13,fontWeight:700,color:'#1A2230',fontFamily:'var(--font)'}}><span>Total</span><span>$129.00</span></div>
+            </div>
+            <div style={{height:40,borderRadius:8,background:'#5B8CEF',display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:13,fontWeight:700,color:'#fff',fontFamily:'var(--font)'}}>Place order</span></div>
+          </div>
+        </div>
+        {/* AI highlight overlay */}
+        {t&&<div style={{position:'absolute',top:t.top,left:t.left,width:t.w,height:t.h,border:'2px solid var(--ai)',borderRadius:6,background:'rgba(164,114,240,0.1)',boxShadow:'0 0 0 4px rgba(164,114,240,0.12)',transition:'all .4s cubic-bezier(.4,0,.2,1)',pointerEvents:'none'}}><span style={{position:'absolute',top:-19,left:0,background:'var(--ai)',color:'#fff',fontSize:9.5,fontWeight:700,fontFamily:'var(--mono)',padding:'1px 6px',borderRadius:'4px 4px 4px 0',whiteSpace:'nowrap'}}>{t.label}</span></div>}
+        {observing&&<div style={{position:'absolute',left:0,right:0,height:2,background:'linear-gradient(90deg,transparent,var(--ai),transparent)',animation:'scan 2.2s linear infinite',opacity:0.55,pointerEvents:'none'}}/>}
+      </div>
+    </div>
+  );
+}
+
+/* ---- center: Execution ---- */
+function ExecutionView({exec,run}){
+  if(exec.phase==='idle')return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,background:'var(--bg2)'}}>
+      <div style={{width:54,height:54,borderRadius:14,background:'var(--bg3)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.run} s={26} stroke="var(--t2)"/></div>
+      <div style={{textAlign:'center'}}><div style={{fontSize:14,fontWeight:600,marginBottom:5}}>No execution yet</div><div style={{fontSize:12.5,color:'var(--t2)',maxWidth:280,lineHeight:'18px'}}>Run a test locally to see the step timeline, screenshots, network and console evidence.</div></div>
+      <button onClick={run} style={{height:34,padding:'0 16px',background:'var(--ok)',border:'none',borderRadius:8,color:'#08130D',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:7}}><V d={IC.run} s={13} fill="#08130D" stroke="none"/>Run CheckoutFlowTest</button>
+    </div>
+  );
+  const passN=exec.steps.filter(s=>s.status==='pass').length;
+  return (
+    <div style={{flex:1,display:'flex',minWidth:0,background:'var(--bg2)'}}>
+      <div style={{width:300,flexShrink:0,borderRight:'1px solid var(--b0)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'12px 14px',borderBottom:'1px solid var(--b0)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+            <span style={{fontSize:12.5,fontWeight:700,fontFamily:'var(--mono)'}}>CheckoutFlowTest</span>
+            {exec.phase==='running'?<Pill c="var(--acc)" bg="var(--accDim)" bd="rgba(91,140,239,0.3)">running</Pill>:<Pill c={exec.result==='fail'?'var(--err)':'var(--ok)'} bg={exec.result==='fail'?'var(--errDim)':'var(--okDim)'} bd={exec.result==='fail'?'rgba(229,100,94,0.3)':'rgba(67,181,129,0.3)'}>{exec.result==='fail'?'failed':'passed'}</Pill>}
+          </div>
+          <div style={{fontSize:11,color:'var(--t2)',fontFamily:'var(--mono)'}}>{passN}/{exec.steps.length} steps · semantic timeline</div>
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'10px 12px'}}>
+          {exec.steps.map((s,i)=>{const c=statusColor(s.status);const last=i===exec.steps.length-1;return (
+            <div key={s.id} style={{display:'flex',gap:10}}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+                <div style={{width:20,height:20,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:s.status==='pass'?'var(--okDim)':s.status==='fail'?'var(--errDim)':'var(--bg3)',border:'1.5px solid '+(s.status==='wait'?'var(--b2)':c)}}>
+                  {s.status==='pass'&&<V d={IC.check} s={11} stroke="var(--ok)" sw={2.5}/>}
+                  {s.status==='fail'&&<V d={IC.x} s={11} stroke="var(--err)" sw={2.5}/>}
+                  {s.status==='running'&&<div style={{width:9,height:9,border:'2px solid var(--acc)',borderTopColor:'transparent',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>}
+                  {s.status==='wait'&&<span style={{fontSize:9,color:'var(--t2)',fontFamily:'var(--mono)'}}>{s.id}</span>}
+                </div>
+                {!last&&<div style={{width:2,flex:1,minHeight:18,background:s.status==='pass'?'var(--okDim)':'var(--b1)',margin:'2px 0'}}/>}
+              </div>
+              <div style={{paddingBottom:14,flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:s.status==='fail'?700:500,color:s.status==='wait'?'var(--t2)':s.status==='fail'?'var(--err)':'var(--t0)'}}>{s.label}</div>
+                <div style={{fontSize:10.5,color:s.status==='fail'?'var(--err)':'var(--t2)',fontFamily:'var(--mono)',marginTop:2}}>{s.status==='fail'?'HTTP 500 · assertion failed':s.status==='running'?'executing…':s.status==='wait'?'queued':s.dur}</div>
+              </div>
+            </div>
+          );})}
+        </div>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,padding:14,gap:12,overflowY:'auto'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}><V d={IC.eye} s={14} stroke="var(--t2)"/><span style={{fontSize:11,fontWeight:700,color:'var(--t2)',letterSpacing:0.5}}>BROWSER STATE · SCREENSHOT</span></div>
+        <div style={{borderRadius:10,border:'1px solid '+(exec.result==='fail'?'rgba(229,100,94,0.4)':'var(--b1)'),overflow:'hidden',background:'#fff'}}>
+          <div style={{height:34,background:'#fff',borderBottom:'1px solid #E5E9F0',display:'flex',alignItems:'center',padding:'0 16px',gap:8}}><div style={{width:20,height:20,borderRadius:5,background:'linear-gradient(135deg,#5B8CEF,#A472F0)'}}/><span style={{fontSize:12,fontWeight:700,color:'#1A2230',fontFamily:'var(--font)'}}>NimbusShop</span></div>
+          <div style={{padding:'28px 22px',display:'flex',flexDirection:'column',alignItems:'center',gap:12,minHeight:160,justifyContent:'center'}}>
+            {exec.phase==='running'
+              ? <><div style={{width:34,height:34,border:'3px solid #DCE2EC',borderTopColor:'#5B8CEF',borderRadius:'50%',animation:'spin .8s linear infinite'}}/><span style={{fontSize:12.5,color:'#7A8698',fontFamily:'var(--font)'}}>Executing against live app…</span></>
+              : exec.result==='fail'
+                ? <div style={{width:'100%',maxWidth:320,background:'#FFF5F4',border:'1px solid #F6C9C6',borderRadius:9,padding:'16px 18px'}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}><V d={IC.bug} s={16} stroke="#D9453E"/><span style={{fontSize:13,fontWeight:700,color:'#C13830',fontFamily:'var(--font)'}}>Payment failed</span></div><div style={{fontSize:12,color:'#9A4742',fontFamily:'var(--font)',lineHeight:'17px'}}>The server returned an error processing your payment. Please try again.</div><div style={{marginTop:9,fontSize:10.5,color:'#C13830',fontFamily:'var(--mono)'}}>POST /api/payments → 500</div></div>
+                : <><div style={{width:44,height:44,borderRadius:'50%',background:'#E3F5EC',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.check} s={22} stroke="#2E9E66" sw={2.5}/></div><span style={{fontSize:14,fontWeight:700,color:'#1A2230',fontFamily:'var(--font)'}}>Order confirmed</span></>}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:14,fontSize:11,color:'var(--t2)'}}>
+          <span style={{display:'flex',alignItems:'center',gap:5}}><V d={IC.net} s={13}/> Network: 24 requests · 1 failed</span>
+          <span style={{display:'flex',alignItems:'center',gap:5}}><V d={IC.terminal} s={13}/> Console: 0 errors</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- center: Debug ---- */
+function DebugView(){
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,background:'var(--bg2)'}}>
+      <div style={{width:54,height:54,borderRadius:14,background:'var(--bg3)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.bug} s={26} stroke="var(--t2)"/></div>
+      <div style={{textAlign:'center'}}><div style={{fontSize:14,fontWeight:600,marginBottom:5}}>Debug session</div><div style={{fontSize:12.5,color:'var(--t2)',maxWidth:300,lineHeight:'18px'}}>Set breakpoints on semantic steps, step through execution, and inspect locator resolution live. Start with <b style={{color:'var(--t1)'}}>Debug</b> in the toolbar.</div></div>
+      <div style={{display:'flex',gap:6}}>{['Step over','Step into','Resume','Inspect locator'].map(x=><Pill key={x}>{x}</Pill>)}</div>
+    </div>
+  );
+}
+
+/* ---- center: Code / Diff ---- */
+function CodeDiffView({applied}){
+  const codeLines=[
+    {n:1,t:'package com.acme.tests;',c:'var(--t2)'},
+    {n:2,t:''},
+    {n:3,t:'import com.acme.pages.*;',c:'var(--t2)'},
+    {n:4,t:'import org.junit.jupiter.api.Test;',c:'var(--t2)'},
+    {n:5,t:'import static com.microsoft.playwright.assertions.PlaywrightAssertions.*;',c:'var(--t2)'},
+    {n:6,t:''},
+    {n:7,t:'public class CheckoutFlowTest extends TestBase {',kw:['public','class']},
+    {n:8,t:'  @Test',c:'var(--ai)'},
+    {n:9,t:'  void userCompletesCheckout() {',kw:['void']},
+    {n:10,t:'    loginPage.authenticate(USER, SECRET);',add:applied},
+    {n:11,t:'    homePage.search("wireless headphones");',add:applied},
+    {n:12,t:'    searchPage.openResult(0);',add:applied},
+    {n:13,t:'    productPage.addToCart(1);',add:applied},
+    {n:14,t:'    cartPage.checkout();',add:applied},
+    {n:15,t:'    checkoutPage.fillShipping(VALID_ADDRESS);',add:applied},
+    {n:16,t:'    paymentPage.placeOrder(TEST_CARD);',add:applied},
+    {n:17,t:'    assertThat(confirmPage.orderId()).isVisible();',add:applied},
+    {n:18,t:'  }'},
+    {n:19,t:'}'},
+  ];
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,background:'var(--bg1)'}}>
+      <div style={{height:30,borderBottom:'1px solid var(--b0)',display:'flex',alignItems:'center',gap:8,padding:'0 12px',flexShrink:0}}>
+        <V d={IC.file} s={13} stroke={applied?'var(--add)':'var(--t2)'}/>
+        <span style={{fontSize:11.5,fontFamily:'var(--mono)',fontWeight:600}}>CheckoutFlowTest.java</span>
+        {applied&&<Pill c="var(--add)" bg="var(--addDim)" bd="rgba(67,181,129,0.3)">+8 lines</Pill>}
+        <div style={{flex:1}}/>
+        <AdapterBadge sm/>
+        <span style={{fontSize:10.5,color:'var(--t2)',fontFamily:'var(--mono)'}}>Java</span>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'10px 0',fontFamily:'var(--mono)',fontSize:12.5,lineHeight:'20px'}}>
+        {codeLines.map(l=>(
+          <div key={l.n} style={{display:'flex',background:l.add?'rgba(67,181,129,0.08)':'transparent',borderLeft:'2px solid '+(l.add?'var(--add)':'transparent'),paddingLeft:0}}>
+            <span style={{width:42,textAlign:'right',paddingRight:12,color:'var(--t3)',flexShrink:0,userSelect:'none'}}>{l.n}</span>
+            <span style={{width:14,color:'var(--add)',flexShrink:0}}>{l.add?'+':''}</span>
+            <span style={{color:l.c||'var(--t0)',whiteSpace:'pre'}}>{renderCode(l)}</span>
+          </div>
+        ))}
+        {!applied&&<div style={{padding:'14px 56px',color:'var(--t2)',fontFamily:'var(--font)',fontSize:12.5}}>Authoring not yet applied — generate &amp; apply a test in the AI Studio to populate this file. The Code/Diff view stays in sync with the semantic steps.</div>}
+      </div>
+    </div>
+  );
+}
+function renderCode(l){
+  let h=(l.t||' ').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h=h.replace(/("[^"]*")/g,'<i style="color:#43B581;font-style:normal">$1</i>');
+  if(l.kw)h=h.replace(/\b(public|class|void|import|package|static)\b/g,'<i style="color:#5B8CEF;font-style:normal">$1</i>');
+  h=h.replace(/(@Test)/g,'<i style="color:#A472F0;font-style:normal">$1</i>');
+  return <span dangerouslySetInnerHTML={{__html:h}}/>;
+}
+
+/* ---- right: AI Test Studio ---- */
+function AIStudio({prompt,setPrompt,phase,steps,studioView,setStudioView,generate,applied,apply,reset,totalConf,go}){
+  const busy=phase==='thinking'||phase==='streaming';
+  const [draft,setDraft]=useState('');
+  useEffect(()=>{setDraft(prompt);},[prompt]);
+  return (
+    <div style={{width:330,flexShrink:0,background:'var(--bg1)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{height:34,borderBottom:'1px solid var(--b0)',display:'flex',alignItems:'center',gap:8,padding:'0 12px',background:'var(--aiBg)',flexShrink:0}}>
+        <V d={IC.spark} s={15} stroke="var(--ai)"/><span style={{fontSize:12.5,fontWeight:700}}>AI Test Studio</span>
+        <Pill c="var(--ai)" bg="var(--aiDim)" bd="rgba(164,114,240,0.25)" style={{marginLeft:'auto'}}>senior engineer</Pill>
+      </div>
+      {/* prompt console */}
+      <div style={{padding:'11px 12px',borderBottom:'1px solid var(--b0)'}}>
+        <div style={{border:'1.5px solid '+(busy?'var(--ai)':'var(--b1)'),borderRadius:9,background:'var(--bg2)',padding:'9px 10px',transition:'border-color .2s'}}>
+          <textarea value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();generate(draft);}}} placeholder="Describe a test, or ask Verity to refactor… e.g. Create checkout flow test" rows={2} style={{width:'100%',background:'none',border:'none',outline:'none',resize:'none',color:'var(--t0)',fontSize:12.5,lineHeight:'17px'}}/>
+          <div style={{display:'flex',alignItems:'center',gap:7,marginTop:6}}>
+            <span style={{fontSize:10,color:'var(--t2)',fontFamily:'var(--mono)'}}>repo-aware · reviews before applying</span>
+            <div style={{flex:1}}/>
+            <button onClick={()=>generate(draft)} disabled={!draft.trim()||busy} style={{width:28,height:28,borderRadius:7,border:'none',background:draft.trim()&&!busy?'var(--ai)':'var(--bg3)',color:draft.trim()&&!busy?'white':'var(--t2)',display:'flex',alignItems:'center',justifyContent:'center'}}>{busy?<div style={{width:12,height:12,border:'2px solid rgba(255,255,255,0.4)',borderTopColor:'white',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>:<V d={IC.send} s={14} stroke="currentColor"/>}</button>
+          </div>
+        </div>
+        {phase==='idle'&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:9}}>{PROMPTS.map(p=><button key={p} onClick={()=>{setDraft(p);generate(p);}} style={{padding:'4px 9px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:14,color:'var(--t1)',fontSize:11}}>{p}</button>)}</div>}
+      </div>
+      {/* steps area */}
+      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column'}}>
+        {phase==='idle'&&steps.length===0
+          ? <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:24,textAlign:'center'}}>
+              <div style={{width:46,height:46,borderRadius:12,background:'var(--aiBg)',border:'1px solid rgba(164,114,240,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.spark} s={22} stroke="var(--ai)"/></div>
+              <div><div style={{fontSize:13,fontWeight:600,marginBottom:5}}>Author with intent</div><div style={{fontSize:12,color:'var(--t2)',lineHeight:'17px'}}>Verity reads your page objects &amp; utilities and proposes semantic steps. You review every change before it touches a file.</div></div>
+            </div>
+          : <>
+            <div style={{padding:'10px 12px 6px',display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:11,fontWeight:700,color:'var(--t2)',letterSpacing:0.5}}>{studioView==='semantic'?'SEMANTIC STEPS':'GENERATED CODE'}</span>
+              {steps.length>0&&<Pill c={totalConf>=90?'var(--ok)':'var(--mod)'} bg={totalConf>=90?'var(--okDim)':'var(--modDim)'} bd="transparent">{totalConf}% conf</Pill>}
+              <div style={{flex:1}}/>
+              <div style={{display:'flex',border:'1px solid var(--b1)',borderRadius:7,overflow:'hidden'}}>
+                {['semantic','code'].map(v=><button key={v} onClick={()=>setStudioView(v)} style={{padding:'3px 9px',border:'none',background:studioView===v?'var(--accDim)':'transparent',color:studioView===v?'var(--acc)':'var(--t2)',fontSize:11,fontWeight:600}}>{v==='semantic'?'Semantic':'Code'}</button>)}
+              </div>
+            </div>
+            <div style={{padding:'4px 12px 12px',display:'flex',flexDirection:'column',gap:7}}>
+              {studioView==='semantic'
+                ? steps.map((s,i)=>(<div key={s.id} style={{border:'1px solid var(--b1)',borderRadius:9,background:'var(--bg2)',padding:'9px 10px',animation:'slideU .3s ease'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:7}}>
+                      <span style={{width:18,height:18,borderRadius:5,background:'var(--aiDim)',color:'var(--ai)',fontSize:10,fontWeight:700,fontFamily:'var(--mono)',display:'flex',alignItems:'center',justifyContent:'center'}}>{s.id}</span>
+                      <span style={{flex:1,fontSize:12.5,fontWeight:600}}>{s.intent}</span>
+                      <span style={{fontSize:9.5,fontWeight:700,color:s.conf>=90?'var(--ok)':'var(--mod)',fontFamily:'var(--mono)'}}>{s.conf}%</span>
+                    </div>
+                    {[['Action',s.action],['Context',s.context],['Expected',s.expected]].map(([k,v])=>(<div key={k} style={{display:'flex',gap:7,marginBottom:3}}><span style={{width:54,flexShrink:0,fontSize:10,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:0.3,paddingTop:1}}>{k}</span><span style={{flex:1,fontSize:11.5,color:'var(--t1)',lineHeight:'15px'}}>{v}</span></div>))}
+                  </div>))
+                : <div style={{border:'1px solid var(--b1)',borderRadius:9,background:'var(--bg0)',padding:'10px 12px',fontFamily:'var(--mono)',fontSize:11.5,lineHeight:'18px'}}>
+                    <div style={{color:'var(--ai)'}}>@Test void userCompletesCheckout() {'{'}</div>
+                    {steps.map(s=>s.code.map((c,j)=><div key={s.id+'-'+j} style={{color:'var(--t1)',paddingLeft:14,animation:'fadeIn .3s ease'}} dangerouslySetInnerHTML={{__html:'  '+c.replace(/(".*?")/g,'<span style="color:#43B581">$1</span>')}}/>))}
+                    <div style={{color:'var(--ai)'}}>{'}'}</div>
+                  </div>}
+            </div>
+            {phase==='proposed'&&<div style={{padding:'0 12px 12px',marginTop:'auto'}}>
+              <div style={{border:'1px solid '+(applied?'rgba(67,181,129,0.35)':'rgba(164,114,240,0.3)'),borderRadius:10,background:applied?'var(--okDim)':'var(--aiBg)',padding:12,animation:'slideU .3s ease'}}>
+                {!applied?<>
+                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:8}}><V d={IC.spark} s={14} stroke="var(--ai)"/><span style={{fontSize:12,fontWeight:700,color:'var(--ai)'}}>Proposed changes</span></div>
+                  <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
+                    <div style={{display:'flex',alignItems:'center',gap:7,fontSize:11.5}}><span style={{width:14,fontFamily:'var(--mono)',fontWeight:700,color:'var(--add)'}}>A</span><span style={{fontFamily:'var(--mono)'}}>CheckoutFlowTest.java</span></div>
+                    <div style={{display:'flex',alignItems:'center',gap:7,fontSize:11.5}}><span style={{width:14,fontFamily:'var(--mono)',fontWeight:700,color:'var(--mod)'}}>M</span><span style={{fontFamily:'var(--mono)'}}>CheckoutPage.java</span></div>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--t1)',lineHeight:'15px',marginBottom:10}}>Verity will <b>not</b> modify files until you apply. Stable role-based locators reused from your page objects.</div>
+                  <div style={{display:'flex',gap:7}}>
+                    <button onClick={reset} style={{flex:1,height:30,border:'1px solid var(--b1)',borderRadius:7,background:'transparent',color:'var(--t1)',fontSize:12,fontWeight:600}}>Discard</button>
+                    <button onClick={apply} style={{flex:2,height:30,border:'none',borderRadius:7,background:'var(--ai)',color:'white',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><V d={IC.check} s={13} stroke="white" sw={2.5}/>Apply to working tree</button>
+                  </div>
+                </>:<>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}><V d={IC.check} s={15} stroke="var(--ok)" sw={2.5}/><span style={{fontSize:12,fontWeight:700,color:'var(--ok)'}}>Applied — review in Git Changes</span></div>
+                  <div style={{fontSize:11,color:'var(--t1)',lineHeight:'15px',marginTop:7}}>Run the test, then commit when you're satisfied. Nothing is pushed without your review.</div>
+                </>}
+              </div>
+            </div>}
+          </>}
+      </div>
+    </div>
+  );
+}
+
+/* ---- commit modal ---- */
+function CommitModal({gitChanges,close,onCommit}){
+  const [sel,setSel]=useState(0);
+  const [msg,setMsg]=useState('test: add checkout flow + stabilize pay locator');
+  const diffs={
+    'CheckoutFlowTest.java':[{t:'+',c:'@Test void userCompletesCheckout() {',k:1},{t:'+',c:'  loginPage.authenticate(USER, SECRET);'},{t:'+',c:'  homePage.search("wireless headphones");'},{t:'+',c:'  productPage.addToCart(1);'},{t:'+',c:'  cartPage.checkout();'},{t:'+',c:'  paymentPage.placeOrder(TEST_CARD);'},{t:'+',c:'  assertThat(confirmPage.orderId()).isVisible();'},{t:'+',c:'}'}],
+    'CheckoutPage.java':[{t:'-',c:'getByText("Pay")'},{t:'+',c:'getByRole(BUTTON, new Options().setName("Pay now"))'},{t:' ',c:'// more stable role-based locator'}],
+  };
+  const file=gitChanges[sel];
+  const lines=diffs[file.file]||[];
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(6,8,12,0.7)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:24,animation:'fadeIn .2s ease'}} onClick={close}>
+      <div onClick={e=>e.stopPropagation()} style={{width:880,maxWidth:'100%',height:560,maxHeight:'90vh',background:'var(--bg1)',border:'1px solid var(--b2)',borderRadius:14,boxShadow:'0 30px 80px rgba(0,0,0,0.6)',display:'flex',flexDirection:'column',overflow:'hidden',animation:'scaleIn .2s ease'}}>
+        <div style={{height:48,borderBottom:'1px solid var(--b0)',display:'flex',alignItems:'center',gap:10,padding:'0 16px',flexShrink:0}}>
+          <V d={IC.git} s={17} stroke="var(--t1)"/><span style={{fontSize:14,fontWeight:700}}>Review &amp; commit</span>
+          <Pill c="var(--t1)"><V d={IC.branch} s={11}/>main</Pill>
+          <div style={{flex:1}}/>
+          <button onClick={close} style={{width:30,height:30,border:'none',background:'var(--bg3)',color:'var(--t1)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.x} s={15}/></button>
+        </div>
+        <div style={{flex:1,display:'flex',minHeight:0}}>
+          <div style={{width:240,flexShrink:0,borderRight:'1px solid var(--b0)',display:'flex',flexDirection:'column'}}>
+            <div style={{padding:'10px 12px 6px',fontSize:10.5,fontWeight:700,color:'var(--t2)',letterSpacing:0.5}}>CHANGED FILES ({gitChanges.length})</div>
+            {gitChanges.map((c,i)=>(<button key={i} onClick={()=>setSel(i)} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 12px',border:'none',borderLeft:'2px solid '+(sel===i?'var(--acc)':'transparent'),background:sel===i?'var(--bg3)':'transparent',textAlign:'left'}}>
+              <span style={{width:13,fontSize:11,fontWeight:700,fontFamily:'var(--mono)',color:c.type==='A'?'var(--add)':'var(--mod)'}}>{c.type}</span>
+              <V d={IC.file} s={14} stroke={c.type==='A'?'var(--add)':'var(--mod)'}/>
+              <span style={{flex:1,fontSize:11.5,fontFamily:'var(--mono)',color:'var(--t0)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.file}</span>
+            </button>))}
+            <div style={{marginTop:'auto',padding:12,borderTop:'1px solid var(--b0)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}><V d={IC.spark} s={13} stroke="var(--ai)"/><span style={{fontSize:10.5,fontWeight:700,color:'var(--ai)',letterSpacing:0.4}}>AI CHANGE SUMMARY</span></div>
+              <div style={{fontSize:11.5,color:'var(--t1)',lineHeight:'16px',marginBottom:8}}>{file.reason}</div>
+              <Pill c="var(--ok)" bg="var(--okDim)" bd="rgba(67,181,129,0.3)">94% confidence</Pill>
+            </div>
+          </div>
+          <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0}}>
+            <div style={{height:32,borderBottom:'1px solid var(--b0)',display:'flex',alignItems:'center',gap:8,padding:'0 14px',flexShrink:0}}><span style={{fontSize:11.5,fontFamily:'var(--mono)',fontWeight:600}}>{file.path}.{file.file}</span><Pill c={file.type==='A'?'var(--add)':'var(--mod)'} bg={file.type==='A'?'var(--addDim)':'var(--modDim)'} bd="transparent">{file.type==='A'?'new file':'modified'}</Pill></div>
+            <div style={{flex:1,overflowY:'auto',padding:'10px 0',fontFamily:'var(--mono)',fontSize:12,lineHeight:'19px'}}>
+              {lines.map((l,i)=>(<div key={i} style={{display:'flex',background:l.t==='+'?'rgba(67,181,129,0.1)':l.t==='-'?'rgba(229,100,94,0.1)':'transparent'}}>
+                <span style={{width:26,textAlign:'center',color:l.t==='+'?'var(--add)':l.t==='-'?'var(--del)':'var(--t3)',flexShrink:0,userSelect:'none'}}>{l.t}</span>
+                <span style={{color:l.t==='+'?'var(--t0)':l.t==='-'?'var(--t1)':'var(--t2)',whiteSpace:'pre'}} dangerouslySetInnerHTML={{__html:l.c.replace(/(".*?")/g,'<span style="color:#43B581">$1</span>')}}/>
+              </div>))}
+            </div>
+            <div style={{borderTop:'1px solid var(--b0)',padding:12,flexShrink:0}}>
+              <input value={msg} onChange={e=>setMsg(e.target.value)} style={{width:'100%',height:36,background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:8,padding:'0 11px',color:'var(--t0)',fontSize:12.5,fontFamily:'var(--mono)',outline:'none',marginBottom:9}}/>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <span style={{fontSize:11,color:'var(--t2)'}}>Commits to your repo · nothing stored by Verity</span>
+                <div style={{flex:1}}/>
+                <button onClick={close} style={{height:34,padding:'0 14px',border:'1px solid var(--b1)',borderRadius:8,background:'transparent',color:'var(--t1)',fontSize:12.5,fontWeight:600}}>Cancel</button>
+                <button onClick={onCommit} style={{height:34,padding:'0 16px',border:'none',borderRadius:8,background:'var(--acc)',color:'white',fontSize:12.5,fontWeight:700,display:'flex',alignItems:'center',gap:7}}><V d={IC.git} s={14} stroke="white"/>Commit &amp; Push</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+/* ============================ CREATE PROJECT WIZARD ============================ */
+const WZ_STEPS=['Project','Repository','Framework','Analysis','Ready'];
+function CreateProject({go,addProject,notify}){
+  const [step,setStep]=useState(0);
+  const [name,setName]=useState('');
+  const [source,setSource]=useState('github');
+  const [repo,setRepo]=useState('acme/shop-e2e-tests');
+  const [detPhase,setDetPhase]=useState(0);
+  const [anaPhase,setAnaPhase]=useState(0);
+  const [counts,setCounts]=useState({pages:0,tests:0,po:0,utils:0});
+  const tRef=useRef([]);
+  useEffect(()=>()=>tRef.current.forEach(clearTimeout),[]);
+  const sources=[{id:'local',name:'Local Folder',sub:'open from disk',mark:<V d={IC.folder} s={16} stroke="var(--t1)"/>},{id:'github',name:'GitHub',sub:'OAuth connected',mark:<GH s={16}/>},{id:'gitlab',name:'GitLab',sub:'',mark:<GL s={16}/>},{id:'bitbucket',name:'Bitbucket',sub:'',mark:<div style={{width:16,height:16,borderRadius:4,background:'#2684FF'}}/>}];
+  const enterFramework=()=>{setDetPhase(1);setStep(2);tRef.current.push(setTimeout(()=>setDetPhase(2),1800));};
+  const enterAnalysis=()=>{
+    setStep(3);setAnaPhase(1);setCounts({pages:0,tests:0,po:0,utils:0});
+    const tgt={pages:42,tests:187,po:18,utils:12};const start=performance.now();const dur=1700;
+    const tick=(t)=>{const p=Math.min(1,(t-start)/dur);setCounts({pages:Math.round(tgt.pages*p),tests:Math.round(tgt.tests*p),po:Math.round(tgt.po*p),utils:Math.round(tgt.utils*p)});if(p<1)requestAnimationFrame(tick);};
+    requestAnimationFrame(tick);tRef.current.push(setTimeout(()=>setAnaPhase(2),1900));
+  };
+  const finish=()=>{const p={id:Date.now(),name:name||'shop-e2e-tests',repo:(source==='local'?'local/':'acme/')+(name||'shop-e2e-tests'),source,framework:'Playwright Java',fwVer:'1.48',branch:'main',tests:187,pages:42,score:96,ago:'just now'};addProject(p);notify('Repository connected — workspace ready');go('workspace');};
+  const next=()=>{if(step===0&&name.trim().length<1)return;if(step===1){enterFramework();return;}if(step===2){enterAnalysis();return;}if(step===4){finish();return;}setStep(s=>s+1);};
+  const canNext=step===0?name.trim().length>0:step===2?detPhase===2:step===3?anaPhase===2:true;
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'radial-gradient(100% 80% at 70% 0%,#101725,#0A0C10 60%)'}} data-screen-label="Create Project">
+      <div style={{height:50,borderBottom:'1px solid var(--b0)',display:'flex',alignItems:'center',padding:'0 18px',gap:10,flexShrink:0}}>
+        <div style={{width:26,height:26,borderRadius:7,background:'linear-gradient(135deg,var(--acc),var(--ai))',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.shield} s={14} stroke="white" sw={2}/></div>
+        <span style={{fontSize:13.5,fontWeight:700}}>Connect a repository</span><div style={{flex:1}}/>
+        <button onClick={()=>go('welcome')} style={{width:28,height:28,border:'none',background:'var(--bg3)',color:'var(--t2)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.x} s={15}/></button>
+      </div>
+      <div style={{maxWidth:560,width:'100%',margin:'0 auto',padding:'20px 24px 0',display:'flex',gap:8,flexShrink:0}}>
+        {WZ_STEPS.map((s,i)=>(<div key={s} style={{flex:1}}><div style={{height:3,borderRadius:2,background:i<=step?'linear-gradient(90deg,var(--acc),var(--ai))':'var(--bg3)',transition:'background .3s'}}/><div style={{display:'flex',alignItems:'center',gap:5,marginTop:7}}>{i<step&&<V d={IC.check} s={11} stroke="var(--ok)" sw={2.5}/>}<span style={{fontSize:11,fontWeight:i===step?700:500,color:i<step?'var(--ok)':i===step?'var(--t0)':'var(--t2)'}}>{s}</span></div></div>))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',display:'flex',justifyContent:'center',padding:'34px 24px'}}>
+        <div style={{width:'100%',maxWidth:520}} key={step}>
+          {step===0&&<div style={{animation:'slideU .3s ease'}}>
+            <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>Name your workspace</div>
+            <p style={{fontSize:13.5,color:'var(--t1)',marginBottom:22}}>One workspace maps to one repository and its test suite.</p>
+            <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--t1)',marginBottom:8}}>Workspace name</label>
+            <input autoFocus value={name} onChange={e=>setName(e.target.value)} placeholder="shop-e2e-tests" style={{width:'100%',height:46,background:'var(--bg2)',border:'1.5px solid var(--b1)',borderRadius:9,padding:'0 14px',color:'var(--t0)',fontSize:14,fontFamily:'var(--mono)',outline:'none'}}/>
+          </div>}
+          {step===1&&<div style={{animation:'slideU .3s ease'}}>
+            <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>Where does the code live?</div>
+            <p style={{fontSize:13.5,color:'var(--t1)',marginBottom:22}}>Verity reads your repo locally. Tests are committed back through Git — never stored on our servers.</p>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:18}}>
+              {sources.map(s=>(<button key={s.id} onClick={()=>setSource(s.id)} style={{display:'flex',alignItems:'center',gap:11,padding:'13px 14px',background:source===s.id?'var(--accBg)':'var(--bg2)',border:'1.5px solid '+(source===s.id?'var(--acc)':'var(--b1)'),borderRadius:10,textAlign:'left'}}>
+                <div style={{width:34,height:34,borderRadius:8,background:'var(--bg3)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.mark}</div>
+                <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:600}}>{s.name}</div>{s.sub&&<div style={{fontSize:11,color:source===s.id?'var(--ok)':'var(--t2)'}}>{s.sub}</div>}</div>
+                <div style={{width:16,height:16,borderRadius:'50%',border:'2px solid '+(source===s.id?'var(--acc)':'var(--t3)'),display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{source===s.id&&<div style={{width:7,height:7,borderRadius:'50%',background:'var(--acc)'}}/>}</div>
+              </button>))}
+            </div>
+            <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--t1)',marginBottom:8}}>Repository</label>
+            <div style={{display:'flex',alignItems:'center',gap:10,height:44,background:'var(--bg2)',border:'1.5px solid var(--b1)',borderRadius:9,padding:'0 14px'}}><GitMark source={source} s={15}/><input value={repo} onChange={e=>setRepo(e.target.value)} style={{flex:1,background:'none',border:'none',outline:'none',color:'var(--t0)',fontSize:13.5,fontFamily:'var(--mono)'}}/></div>
+          </div>}
+          {step===2&&<div style={{animation:'slideU .3s ease',textAlign:'center',paddingTop:10}}>
+            <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{detPhase===2?'Framework detected':'Detecting framework'}</div>
+            <p style={{fontSize:13.5,color:'var(--t1)',marginBottom:30}}>{detPhase===2?'Verity will use this as the active execution adapter.':'Reading build files, dependencies and test structure…'}</p>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:26}}>
+              {detPhase<2?<div style={{width:64,height:64,borderRadius:16,background:'var(--bg2)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{width:30,height:30,border:'3px solid var(--b2)',borderTopColor:'var(--acc)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/></div>:<div style={{width:64,height:64,borderRadius:16,background:'var(--accBg)',border:'1px solid rgba(91,140,239,0.3)',display:'flex',alignItems:'center',justifyContent:'center',animation:'scaleIn .3s ease'}}><V d={IC.check} s={32} stroke="var(--acc)" sw={2.5}/></div>}
+            </div>
+            <div style={{maxWidth:340,margin:'0 auto',display:'flex',flexDirection:'column',gap:8}}>
+              {[['Build tool','Maven',1],['Test framework','JUnit 5',1],['Adapter','Playwright Java 1.48',2],['Pattern','Page Object Model',2]].map(([k,v,ph],i)=>(<div key={k} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 13px',background:'var(--bg2)',border:'1px solid '+(detPhase>=ph?'var(--b1)':'var(--b0)'),borderRadius:8,opacity:detPhase>=ph?1:0.4,transition:'opacity .4s '+(i*0.1)+'s'}}><span style={{fontSize:12,color:'var(--t2)'}}>{k}</span><span style={{fontSize:12.5,fontWeight:600,fontFamily:'var(--mono)',color:k==='Adapter'?'var(--acc)':'var(--t0)'}}>{detPhase>=ph?v:'…'}</span></div>))}
+            </div>
+            {detPhase===2&&<div style={{marginTop:20,display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center',animation:'fadeIn .4s ease'}}><span style={{fontSize:11,color:'var(--t2)',width:'100%',marginBottom:2}}>Framework-neutral — future adapters:</span>{FUTURE_ADAPTERS.map(a=><Pill key={a} c="var(--t2)">{a}</Pill>)}</div>}
+          </div>}
+          {step===3&&<div style={{animation:'slideU .3s ease'}}>
+            <div style={{textAlign:'center',marginBottom:24}}><div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{anaPhase===2?'Repository understood':'Analyzing repository'}</div><p style={{fontSize:13.5,color:'var(--t1)'}}>{anaPhase===2?'Verity built a model of your application, tests and conventions.':'Indexing pages, page objects, utilities and business flows…'}</p></div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:18}}>{[['Pages',counts.pages],['Tests',counts.tests],['Page Objects',counts.po],['Utilities',counts.utils]].map(([k,v])=>(<div key={k} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:10,padding:'14px 12px',textAlign:'center'}}><div style={{fontSize:26,fontWeight:700,fontFamily:'var(--mono)',color:'var(--t0)'}}>{v}</div><div style={{fontSize:11,color:'var(--t2)',marginTop:3}}>{k}</div></div>))}</div>
+            <div style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:11,padding:'14px 16px',marginBottom:16}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:9}}><span style={{fontSize:11.5,fontWeight:700,color:'var(--t2)',letterSpacing:0.4}}>BUSINESS FLOWS DETECTED</span>{anaPhase===2&&<Pill c="var(--ok)" bg="var(--okDim)" bd="rgba(67,181,129,0.3)">6 flows</Pill>}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{REPO_FLOWS.map((f,i)=><span key={f} style={{padding:'4px 10px',background:'var(--bg3)',border:'1px solid var(--b1)',borderRadius:7,fontSize:11.5,opacity:anaPhase===2?1:0.4,transition:'opacity .3s '+(i*0.07)+'s',display:'flex',alignItems:'center',gap:6}}>{anaPhase===2&&<div style={{width:5,height:5,borderRadius:'50%',background:'var(--ok)'}}/>}{f}</span>)}</div></div>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'var(--accBg)',border:'1px solid rgba(91,140,239,0.25)',borderRadius:11}}><div style={{position:'relative',width:46,height:46,flexShrink:0}}><svg width="46" height="46" viewBox="0 0 46 46"><circle cx="23" cy="23" r="19" fill="none" stroke="var(--bg4)" strokeWidth="4"/><circle cx="23" cy="23" r="19" fill="none" stroke="var(--acc)" strokeWidth="4" strokeLinecap="round" strokeDasharray={(2*Math.PI*19)} strokeDashoffset={anaPhase===2?2*Math.PI*19*0.04:2*Math.PI*19} transform="rotate(-90 23 23)" style={{transition:'stroke-dashoffset 1s ease'}}/></svg><span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:'var(--acc)'}}>96%</span></div><div><div style={{fontSize:13,fontWeight:700,color:'var(--acc)'}}>Repository Understanding Score</div><div style={{fontSize:12,color:'var(--t1)',marginTop:2}}>Structure, conventions &amp; locators mapped with high confidence.</div></div></div>
+          </div>}
+          {step===4&&<div style={{animation:'slideU .3s ease',textAlign:'center',paddingTop:20}}>
+            <div style={{width:64,height:64,margin:'0 auto 18px',borderRadius:16,background:'var(--okDim)',border:'1px solid rgba(67,181,129,0.3)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.check} s={32} stroke="var(--ok)" sw={2.5}/></div>
+            <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>Workspace ready</div>
+            <p style={{fontSize:14,color:'var(--t1)',maxWidth:400,margin:'0 auto 24px',lineHeight:'21px'}}>Your repository is connected and understood. Open the workspace to author your first AI-assisted test.</p>
+            <div style={{display:'inline-flex',flexDirection:'column',gap:8,padding:'14px 18px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:11,textAlign:'left'}}>{[['Repository',(source==='local'?'local/':'acme/')+(name||'shop-e2e-tests')],['Adapter','Playwright Java 1.48'],['Understanding','96%']].map(([k,v])=>(<div key={k} style={{display:'flex',gap:24,fontSize:12.5}}><span style={{color:'var(--t2)',width:90}}>{k}</span><span style={{fontWeight:600,fontFamily:'var(--mono)'}}>{v}</span></div>))}</div>
+          </div>}
+        </div>
+      </div>
+      <div style={{borderTop:'1px solid var(--b0)',padding:'14px 24px',display:'flex',justifyContent:'center',flexShrink:0}}>
+        <div style={{width:'100%',maxWidth:520,display:'flex',gap:10}}>
+          <button onClick={()=>step===0?go('welcome'):setStep(s=>Math.max(0,s-1))} style={{height:44,padding:'0 18px',border:'1px solid var(--b1)',borderRadius:10,background:'transparent',color:'var(--t1)',fontSize:13.5,fontWeight:600}}>Back</button>
+          <div style={{flex:1}}/>
+          <button onClick={next} disabled={!canNext} style={{height:44,padding:'0 22px',border:'none',borderRadius:10,background:canNext?(step===4?'linear-gradient(135deg,var(--acc),var(--ai))':'var(--acc)'):'var(--bg3)',color:canNext?'white':'var(--t2)',fontSize:13.5,fontWeight:700,display:'flex',alignItems:'center',gap:7,boxShadow:canNext&&step===4?'0 6px 20px rgba(91,140,239,0.3)':'none'}}>{step===1?'Detect framework':step===2?'Analyze repository':step===3?'Continue':step===4?<>Open workspace<V d={IC.arrow} s={15} stroke="white" sw={2}/></>:<>Continue<V d={IC.arrow} s={15} stroke="currentColor" sw={2}/></>}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ PROJECTS ============================ */
+function Projects({go,projects,setActive}){
+  const open=(p)=>{setActive(p);go('workspace');};
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}} data-screen-label="Projects">
+      <div style={{height:48,borderBottom:'1px solid var(--b0)',background:'var(--bg1)',display:'flex',alignItems:'center',padding:'0 18px',gap:10,flexShrink:0}}>
+        <span style={{fontSize:14,fontWeight:700}}>Projects</span><Pill>{projects.length} repos</Pill><div style={{flex:1}}/>
+        <div style={{height:30,display:'flex',alignItems:'center',gap:6,background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:7,padding:'0 10px'}}><V d={IC.search} s={13} stroke="var(--t2)"/><input placeholder="Search repositories…" style={{background:'none',border:'none',outline:'none',color:'var(--t1)',fontSize:12,width:160}}/></div>
+        <button onClick={()=>go('create')} style={{height:32,padding:'0 13px',background:'var(--acc)',border:'none',borderRadius:7,color:'white',fontSize:12.5,fontWeight:700,display:'flex',alignItems:'center',gap:6}}><V d={IC.plus} s={14} stroke="white" sw={2}/>Connect repo</button>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        <div style={{fontSize:11,fontWeight:700,color:'var(--t2)',letterSpacing:0.6,marginBottom:12}}>CONNECTED REPOSITORIES</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(330px,1fr))',gap:12}}>
+          {projects.map(p=>(<div key={p.id} onClick={()=>open(p)} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:12,padding:16,cursor:'pointer',transition:'all .15s'}} onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--b2)';e.currentTarget.style.background='var(--bg3)';}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--b1)';e.currentTarget.style.background='var(--bg2)';}}>
+            <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:12}}><div style={{width:34,height:34,borderRadius:8,background:'var(--bg3)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><GitMark source={p.source} s={17}/></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div><div style={{fontSize:11,color:'var(--t2)',fontFamily:'var(--mono)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.repo}</div></div>{p.open&&<Pill c="var(--ok)" bg="var(--okDim)" bd="rgba(67,181,129,0.3)">open</Pill>}</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}><AdapterBadge fw={p.framework} ver={p.fwVer} sm/><Pill><V d={IC.branch} s={11}/>{p.branch}</Pill></div>
+            <div style={{display:'flex',alignItems:'center',gap:16}}><div><div style={{fontSize:18,fontWeight:700,fontFamily:'var(--mono)'}}>{p.tests}</div><div style={{fontSize:10.5,color:'var(--t2)'}}>tests</div></div><div><div style={{fontSize:18,fontWeight:700,fontFamily:'var(--mono)'}}>{p.pages}</div><div style={{fontSize:10.5,color:'var(--t2)'}}>pages</div></div><div style={{flex:1}}/><div style={{textAlign:'right'}}><div style={{fontSize:16,fontWeight:700,fontFamily:'var(--mono)',color:'var(--acc)'}}>{p.score}%</div><div style={{fontSize:10.5,color:'var(--t2)'}}>understood</div></div></div>
+          </div>))}
+          <button onClick={()=>go('create')} style={{minHeight:170,background:'transparent',border:'1.5px dashed var(--b1)',borderRadius:12,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,color:'var(--t2)'}}><div style={{width:40,height:40,borderRadius:10,background:'var(--bg2)',border:'1px solid var(--b1)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.plus} s={19} stroke="var(--t1)"/></div><div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>Connect a repository</div></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ EXECUTIONS ============================ */
+function Executions({go,runs,project}){
+  const [sel,setSel]=useState(runs[0]);
+  useEffect(()=>{setSel(runs[0]);},[runs]);
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}} data-screen-label="Executions">
+      <div style={{height:48,borderBottom:'1px solid var(--b0)',background:'var(--bg1)',display:'flex',alignItems:'center',padding:'0 18px',gap:10,flexShrink:0}}><span style={{fontSize:14,fontWeight:700}}>Executions</span><Pill>local runs</Pill><div style={{flex:1}}/><button onClick={()=>go('workspace')} style={{height:30,padding:'0 12px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:7,color:'var(--t1)',fontSize:12,fontWeight:600,display:'flex',alignItems:'center',gap:6}}><V d={IC.ws} s={13}/>Back to Workspace</button></div>
+      <div style={{flex:1,display:'flex',minHeight:0}}>
+        <div style={{width:380,flexShrink:0,borderRight:'1px solid var(--b0)',overflowY:'auto'}}>
+          {runs.map(r=>(<button key={r.id} onClick={()=>setSel(r)} style={{width:'100%',display:'flex',alignItems:'center',gap:11,padding:'12px 16px',border:'none',borderBottom:'1px solid var(--b0)',borderLeft:'2px solid '+(sel&&sel.id===r.id?'var(--acc)':'transparent'),background:sel&&sel.id===r.id?'var(--bg2)':'transparent',textAlign:'left'}}><div style={{width:8,height:8,borderRadius:'50%',background:statusColor(r.status),flexShrink:0}}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,fontFamily:'var(--mono)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.test}</div><div style={{fontSize:10.5,color:'var(--t2)'}}>{r.branch} · {r.when}</div></div><div style={{textAlign:'right'}}><div style={{fontSize:11,fontWeight:700,color:statusColor(r.status),fontFamily:'var(--mono)'}}>{r.status.toUpperCase()}</div><div style={{fontSize:10.5,color:'var(--t2)',fontFamily:'var(--mono)'}}>{r.dur}</div></div></button>))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:22}}>
+          {sel&&<>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}><span style={{fontSize:17,fontWeight:700,fontFamily:'var(--mono)'}}>{sel.test}</span><Pill c={statusColor(sel.status)} bg={sel.status==='fail'?'var(--errDim)':'var(--okDim)'} bd="transparent">{sel.status==='fail'?'failed':'passed'}</Pill></div>
+            <div style={{fontSize:12,color:'var(--t2)',fontFamily:'var(--mono)',marginBottom:18}}>{sel.id} · {sel.branch} · {sel.when}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:18,maxWidth:520}}>{[['Duration',sel.dur],['Steps',sel.steps],['Status',sel.status==='fail'?'Failed':'Passed'],['Confidence',sel.status==='fail'?'94%':'97%']].map(([k,v])=>(<div key={k} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:9,padding:'11px 13px'}}><div style={{fontSize:10.5,color:'var(--t2)',marginBottom:4}}>{k}</div><div style={{fontSize:16,fontWeight:700,fontFamily:'var(--mono)'}}>{v}</div></div>))}</div>
+            {sel.status==='fail'?<div style={{background:'var(--bg2)',border:'1px solid rgba(229,100,94,0.3)',borderRadius:11,padding:'14px 16px',maxWidth:520,marginBottom:14}}><div style={{display:'flex',alignItems:'center',gap:7,marginBottom:9}}><V d={IC.bug} s={15} stroke="var(--err)"/><span style={{fontSize:12.5,fontWeight:700,color:'var(--err)'}}>Failure summary</span><Pill c="var(--ai)" bg="var(--aiDim)" bd="transparent" style={{marginLeft:'auto'}}>AI · 96%</Pill></div><div style={{fontSize:12.5,color:'var(--t1)',lineHeight:'18px',marginBottom:10}}>Step 6 (Submit payment) failed: <b style={{color:'var(--err)'}}>POST /api/payments returned HTTP 500</b>. This is an <b style={{color:'var(--t0)'}}>application error</b>, not a test defect — locators resolved and assertions were valid up to the failing call.</div><div style={{display:'flex',gap:6}}><Pill c="var(--err)" bg="var(--errDim)" bd="transparent">app bug</Pill><Pill>test valid</Pill><Pill>network log attached</Pill></div></div>:<div style={{background:'var(--bg2)',border:'1px solid rgba(67,181,129,0.25)',borderRadius:11,padding:'14px 16px',maxWidth:520,marginBottom:14}}><div style={{display:'flex',alignItems:'center',gap:7}}><V d={IC.check} s={15} stroke="var(--ok)"/><span style={{fontSize:12.5,fontWeight:700,color:'var(--ok)'}}>All steps passed</span></div><div style={{fontSize:12.5,color:'var(--t1)',marginTop:7,lineHeight:'18px'}}>No locator drift or flakiness detected. Evidence captured for every step.</div></div>}
+            <button onClick={()=>go('workspace')} style={{height:34,padding:'0 14px',background:'var(--acc)',border:'none',borderRadius:8,color:'white',fontSize:12.5,fontWeight:700,display:'flex',alignItems:'center',gap:7}}>Open in Workspace<V d={IC.arrow} s={14} stroke="white" sw={2}/></button>
+          </>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ AI MEMORY ============================ */
+function Memory({go,project}){
+  const [tab,setTab]=useState('pages');
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}} data-screen-label="AI Memory">
+      <div style={{height:48,borderBottom:'1px solid var(--b0)',background:'var(--bg1)',display:'flex',alignItems:'center',padding:'0 18px',gap:10,flexShrink:0}}><V d={IC.mem} s={16} stroke="var(--ai)"/><span style={{fontSize:14,fontWeight:700}}>AI Memory</span><span style={{fontSize:12,color:'var(--t2)',fontFamily:'var(--mono)'}}>{project.repo}</span><Pill c="var(--ai)" bg="var(--aiDim)" bd="rgba(164,114,240,0.25)"><span style={{width:5,height:5,borderRadius:'50%',background:'var(--ai)',animation:'pulse 2s infinite'}}/>learning</Pill><div style={{flex:1}}/><button onClick={()=>go('workspace')} style={{height:30,padding:'0 12px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:7,color:'var(--t1)',fontSize:12,fontWeight:600,display:'flex',alignItems:'center',gap:6}}><V d={IC.ws} s={13}/>Workspace</button></div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:18}}>{[['Pages',42,IC.page],['Components',128,IC.layers],['Business Flows',6,IC.flow],['Known Locators',312,IC.target]].map(([k,v,ic])=>(<div key={k} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:11,padding:'14px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}><V d={ic} s={14} stroke="var(--ai)"/><span style={{fontSize:11,color:'var(--t2)'}}>{k}</span></div><div style={{fontSize:24,fontWeight:700,fontFamily:'var(--mono)'}}>{v}</div></div>))}</div>
+        <div style={{display:'flex',gap:4,marginBottom:14,borderBottom:'1px solid var(--b0)'}}>{[['pages','Detected Pages'],['flows','Business Flows'],['locators','Known Locators'],['intel','Repository Intelligence']].map(([id,l])=>(<button key={id} onClick={()=>setTab(id)} style={{padding:'8px 12px',border:'none',borderBottom:'2px solid '+(tab===id?'var(--ai)':'transparent'),background:'transparent',color:tab===id?'var(--t0)':'var(--t2)',fontSize:12.5,fontWeight:tab===id?600:500,marginBottom:-1}}>{l}</button>))}</div>
+        {tab==='pages'&&<div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>{REPO_PAGES.map((p,i)=>(<div key={p} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:10,padding:'12px 13px'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}><span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--acc)'}}>/{p.toLowerCase().replace(/ /g,'-')}</span><span style={{fontSize:10,fontWeight:700,color:'var(--ok)',fontFamily:'var(--mono)'}}>{95-i}%</span></div><div style={{fontSize:13,fontWeight:600,marginBottom:5}}>{p}</div><div style={{fontSize:10.5,color:'var(--t2)'}}>{8+i*3} elements · {2+i} interactive</div></div>))}</div>}
+        {tab==='flows'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{REPO_FLOWS.map((f,i)=>(<div key={f} style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:10,padding:'13px 15px',display:'flex',alignItems:'center',gap:12}}><div style={{width:34,height:34,borderRadius:8,background:'var(--aiBg)',border:'1px solid rgba(164,114,240,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.flow} s={16} stroke="var(--ai)"/></div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{f}</div><div style={{fontSize:11,color:'var(--t2)'}}>{4+i} steps · mapped to {1+(i%3)} page objects</div></div><Pill c="var(--ok)" bg="var(--okDim)" bd="transparent">{90+i}%</Pill></div>))}</div>}
+        {tab==='locators'&&<div style={{background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:10,overflow:'hidden'}}>{[['loginButton','getByRole(BUTTON, "Sign in")','Login',99],['searchInput','getByPlaceholder("Search")','Home',97],['addToCart','getByRole(BUTTON, "Add to cart")','Product',96],['checkoutBtn','getByRole(LINK, "Checkout")','Cart',94],['payNow','getByRole(BUTTON, "Pay now")','Payment',91]].map((l,i)=>(<div key={l[0]} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 15px',borderBottom:i<4?'1px solid var(--b0)':'none'}}><span style={{width:120,fontSize:12,fontWeight:600,fontFamily:'var(--mono)'}}>{l[0]}</span><span style={{flex:1,fontSize:11.5,color:'var(--t1)',fontFamily:'var(--mono)'}}>{l[1]}</span><Pill>{l[2]}</Pill><span style={{fontSize:11,fontWeight:700,color:l[3]>=95?'var(--ok)':'var(--mod)',fontFamily:'var(--mono)',width:32,textAlign:'right'}}>{l[3]}%</span></div>))}</div>}
+        {tab==='intel'&&<div style={{maxWidth:560}}><div style={{background:'var(--accBg)',border:'1px solid rgba(91,140,239,0.25)',borderRadius:11,padding:'16px 18px',marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}><AdapterBadge/><Pill c="var(--ok)" bg="var(--okDim)" bd="transparent">96% understood</Pill></div><div style={{fontSize:12.5,color:'var(--t1)',lineHeight:'18px'}}>Verity maintains a living model of this repository — pages, components, flows and locators with confidence scores. This foundation grows into a knowledge graph, self-healing locators and autonomous maintenance.</div></div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{['Knowledge graph','Self-healing locators','Autonomous maintenance','Coverage analysis'].map(x=><Pill key={x} c="var(--t2)">{x} · soon</Pill>)}</div></div>}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ SETTINGS ============================ */
+function Settings({go,project}){
+  const [sel,setSel]=useState('framework');
+  const groups=[['repository','Repository',IC.git],['framework','Framework Adapter',IC.layers],['git','Git Integration',IC.branch],['model','AI Model',IC.spark],['execution','Execution',IC.run]];
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}} data-screen-label="Settings">
+      <div style={{height:48,borderBottom:'1px solid var(--b0)',background:'var(--bg1)',display:'flex',alignItems:'center',padding:'0 18px',gap:10,flexShrink:0}}><V d={IC.settings} s={16} stroke="var(--t1)"/><span style={{fontSize:14,fontWeight:700}}>Settings</span></div>
+      <div style={{flex:1,display:'flex',minHeight:0}}>
+        <div style={{width:220,flexShrink:0,borderRight:'1px solid var(--b0)',padding:'10px 8px'}}>{groups.map(([id,l,ic])=>(<button key={id} onClick={()=>setSel(id)} style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'9px 11px',border:'none',borderRadius:8,background:sel===id?'var(--bg3)':'transparent',color:sel===id?'var(--t0)':'var(--t1)',fontSize:12.5,fontWeight:sel===id?600:500,textAlign:'left',marginBottom:2}}><V d={ic} s={15} stroke={sel===id?'var(--acc)':'var(--t2)'}/>{l}</button>))}</div>
+        <div style={{flex:1,overflowY:'auto',padding:24}}>
+          <div style={{maxWidth:560}}>
+            {sel==='framework'&&<><div style={{fontSize:17,fontWeight:700,marginBottom:5}}>Framework Adapter</div><p style={{fontSize:13,color:'var(--t1)',marginBottom:18}}>The adapter is the execution engine. Verity stays framework-neutral — switch without rewriting your semantic tests.</p><div style={{background:'var(--bg2)',border:'1px solid var(--acc)',borderRadius:11,padding:'14px 16px',marginBottom:14}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,borderRadius:8,background:'var(--accBg)',border:'1px solid rgba(91,140,239,0.3)',display:'flex',alignItems:'center',justifyContent:'center'}}><V d={IC.layers} s={18} stroke="var(--acc)"/></div><div><div style={{fontSize:13.5,fontWeight:700}}>Playwright Java</div><div style={{fontSize:11.5,color:'var(--t2)',fontFamily:'var(--mono)'}}>v1.48 · active adapter</div></div></div><Pill c="var(--acc)" bg="var(--accBg)" bd="rgba(91,140,239,0.3)">current</Pill></div></div><div style={{fontSize:11,fontWeight:700,color:'var(--t2)',letterSpacing:0.5,marginBottom:9}}>AVAILABLE ADAPTERS</div><div style={{display:'flex',flexDirection:'column',gap:8}}>{FUTURE_ADAPTERS.map(a=>(<div key={a} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',background:'var(--bg2)',border:'1px solid var(--b1)',borderRadius:9,opacity:0.75}}><V d={IC.layers} s={15} stroke="var(--t2)"/><span style={{flex:1,fontSize:12.5,fontWeight:600}}>{a}</span><Pill c="var(--t2)">coming soon</Pill></div>))}</div></>}
+            {sel==='repository'&&<><div style={{fontSize:17,fontWeight:700,marginBottom:5}}>Repository</div><p style={{fontSize:13,color:'var(--t1)',marginBottom:18}}>Connection and crawl settings.</p>{[['Source',project.source],['Repository',project.repo],['Default branch',project.branch],['Re-index','on every pull']].map(([k,v])=>(<div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:'1px solid var(--b0)'}}><span style={{fontSize:12.5,color:'var(--t1)'}}>{k}</span><span style={{fontSize:12.5,fontWeight:600,fontFamily:'var(--mono)'}}>{v}</span></div>))}</>}
+            {sel==='git'&&<><div style={{fontSize:17,fontWeight:700,marginBottom:5}}>Git Integration</div><p style={{fontSize:13,color:'var(--t1)',marginBottom:18}}>How Verity writes changes back to your repository.</p>{[['Commit author','Verity (on your behalf)'],['Require review before commit','Always'],['Open pull requests','Enabled'],['Branch prefix','verity/']].map(([k,v])=>(<div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:'1px solid var(--b0)'}}><span style={{fontSize:12.5,color:'var(--t1)'}}>{k}</span><span style={{fontSize:12.5,fontWeight:600}}>{v}</span></div>))}<div style={{marginTop:14,padding:'11px 14px',background:'var(--okDim)',border:'1px solid rgba(67,181,129,0.25)',borderRadius:9,fontSize:12,color:'var(--ok)',display:'flex',alignItems:'center',gap:8}}><V d={IC.shield} s={15} stroke="var(--ok)"/>Human review before modification is enforced and cannot be disabled in MVP.</div></>}
+            {sel==='model'&&<><div style={{fontSize:17,fontWeight:700,marginBottom:5}}>AI Model</div><p style={{fontSize:13,color:'var(--t1)',marginBottom:18}}>The reasoning engine behind the AI Test Studio.</p>{[['Model','Verity Engineer v2'],['Repository context','Full index (RAG)'],['Proposes before applying','Always on'],['Local inference cache','Enabled']].map(([k,v])=>(<div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:'1px solid var(--b0)'}}><span style={{fontSize:12.5,color:'var(--t1)'}}>{k}</span><span style={{fontSize:12.5,fontWeight:600,fontFamily:'var(--mono)'}}>{v}</span></div>))}</>}
+            {sel==='execution'&&<><div style={{fontSize:17,fontWeight:700,marginBottom:5}}>Execution</div><p style={{fontSize:13,color:'var(--t1)',marginBottom:18}}>Local-first test execution.</p>{[['Run location','Local machine'],['Browser','Chromium (bundled)'],['Headless','Off (visible)'],['Parallel workers','4'],['Capture evidence','Screenshots · network · console']].map(([k,v])=>(<div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:'1px solid var(--b0)'}}><span style={{fontSize:12.5,color:'var(--t1)'}}>{k}</span><span style={{fontSize:12.5,fontWeight:600,fontFamily:'var(--mono)'}}>{v}</span></div>))}</>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ APP SHELL ============================ */
+function ActivityRail({route,go,tour}){
+  return (
+    <div style={{width:52,flexShrink:0,background:'var(--bg0)',borderRight:'1px solid var(--b0)',display:'flex',flexDirection:'column',alignItems:'center',padding:'10px 0',gap:3,zIndex:30}}>
+      <div onClick={()=>go('workspace')} title="Verity" style={{width:32,height:32,borderRadius:8,background:'linear-gradient(135deg,var(--acc),var(--ai))',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10,cursor:'pointer',boxShadow:'0 0 16px rgba(91,140,239,0.3)'}}><V d={IC.shield} s={17} stroke="white" sw={2}/></div>
+      {NAV.map(n=>{const on=route===n.id;return (
+        <button key={n.id} title={n.label} onClick={()=>go(n.id)} style={{position:'relative',width:38,height:38,border:'none',borderRadius:9,background:on?'var(--accDim)':'transparent',color:on?'var(--acc)':'var(--t2)',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>
+          <V d={n.icon} s={19} fill={on&&n.id==='workspace'?'var(--accDim)':'none'}/>
+          {on&&<div style={{position:'absolute',left:-10,top:9,width:3,height:20,borderRadius:3,background:'var(--acc)'}}/>}
+        </button>
+      );})}
+      <div style={{flex:1}}/>
+      <div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#5B8CEF,#A472F0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white'}}>R</div>
+    </div>
+  );
+}
+
+function App(){
+  const [route,setRoute]=useState('welcome');
+  const [projects,setProjects]=useState(PROJECTS);
+  const [active,setActive]=useState(PROJECTS[0]);
+  const [toast,setToast]=useState(null);
+  // workspace shared state lifted so Executions/Git stay in sync
+  const [gitChanges,setGitChanges]=useState([]); // {file,type,reason}
+  const [runs,setRuns]=useState(EXEC_RUNS);
+  const [lastRun,setLastRun]=useState(null);
+
+  const notify=useCallback((m)=>{setToast(m);setTimeout(()=>setToast(null),2800);},[]);
+  const go=useCallback((r)=>setRoute(r),[]);
+  const addProject=useCallback((p)=>{setProjects(prev=>[p,...prev]);setActive(p);},[]);
+
+  const chrome=['workspace','projects','executions','memory','settings'].includes(route);
+
+  return (
+    <div style={{width:'100vw',height:'100vh',display:'flex',overflow:'hidden',background:'var(--bg0)'}}>
+      {chrome&&<ActivityRail route={route} go={go}/>}
+      <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
+        {route==='welcome'&&<Welcome go={go}/>}
+        {route==='create'&&<CreateProject go={go} addProject={addProject} notify={notify}/>}
+        {route==='workspace'&&<Workspace go={go} project={active} notify={notify} gitChanges={gitChanges} setGitChanges={setGitChanges} setRuns={setRuns} setLastRun={setLastRun}/>}
+        {route==='projects'&&<Projects go={go} projects={projects} setActive={setActive}/>}
+        {route==='executions'&&<Executions go={go} runs={runs} project={active}/>}
+        {route==='memory'&&<Memory go={go} project={active}/>}
+        {route==='settings'&&<Settings go={go} project={active}/>}
+      </div>
+      {toast&&<div style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',background:'var(--bg3)',border:'1px solid var(--b2)',borderRadius:9,padding:'10px 16px',fontSize:12.5,fontWeight:500,color:'var(--t0)',boxShadow:'0 14px 40px rgba(0,0,0,0.55)',zIndex:400,display:'flex',alignItems:'center',gap:9,animation:'slideU .3s ease'}}><div style={{width:6,height:6,borderRadius:'50%',background:'var(--ok)'}}/>{toast}</div>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
