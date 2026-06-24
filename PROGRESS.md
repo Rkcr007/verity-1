@@ -15,7 +15,7 @@
 |-----------|------|--------|----------------|
 | **M0** | Foundation | ✅ Complete | Monorepo, Electron shell, IPC, SQLite, design system, CI |
 | M1 | Repository Intelligence | 🔄 In progress | GitHub OAuth + tree-sitter optional |
-| M2 | Semantic Model | ⏳ Pending | `.verity/tests/*.yaml`, left-panel tests |
+| M2 | Semantic Model | ✅ Complete | Left panel wired; run status in M5 |
 | M3 | Playwright Java Adapter | ⏳ Pending | Transpile, prerequisites, adapter registry |
 | M4 | AI Test Studio | ⏳ Pending | Prompt → stream → apply |
 | M5 | Execution Engine | ⏳ Pending | Run tests, timeline, Executions screen |
@@ -81,7 +81,7 @@
 - [x] Zod schema v1, reader, writer, migrator (`packages/semantic-model`)
 - [x] Path: `.verity/tests/{slug}.yaml`
 - [x] `SemanticModelService` + IPC (`semantic:*` wired)
-- [ ] Left panel — Semantic Tests section
+- [x] Left panel — Semantic Tests section (status dots, click → read-only AI Studio)
 
 ---
 
@@ -186,7 +186,8 @@ verity/
 
 | Date | Change |
 |------|--------|
-| 2026-06-24 | **M1 E1-S4 + E1-S6** — index enrichment, wizard flows from scan, AI Memory screen |
+| 2026-06-24 | **M2 E2-S3** — Workspace left panel Semantic Tests list, read-only AI Studio |
+| 2026-06-24 | **M1 E1-S5** — File watcher + incremental indexer |
 | 2026-06-24 | **M1 E1-S2** — `repository-intelligence` package, POM parser, PlaywrightJavaDetector, wizard detection failure UI |
 | 2026-06-24 | **M1 started** — RepositoryConnector, intelligence services, Create Project Wizard (local folder path) |
 | 2026-06-24 | **IPC catalog complete** — 28 commands, 28 events, stub handlers for unimplemented channels |

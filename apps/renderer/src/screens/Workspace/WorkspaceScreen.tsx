@@ -1,62 +1,46 @@
+import { useEffect } from 'react';
 import type { Project } from '@verity/core';
+import { GitMark } from '../../components/GitMark.js';
+import { useSemanticStore } from '../../store/semantic-store.js';
+import { formatFramework, formatRepoSlug, formatWorkspaceStatus } from '../../utils/display.js';
+import { AiStudioReadOnlyPanel } from './AiStudioReadOnlyPanel.js';
+import { WorkspaceLeftPanel } from './WorkspaceLeftPanel.js';
 
 /**
- * Workspace layout skeleton (architecture §2.2, locked prototype three-panel
- * metaphor: Repository | center work surface | AI Studio, with a bottom panel).
- *
- * EPIC 0 ships the STRUCTURE only — panels, toolbar, regions — with no behavior.
- * Later epics fill the left repository tree (E1), AI Studio (E4), execution
- * timeline (E5), and git panel (E6). Wiring those into this frame requires no
- * structural change.
+ * Workspace layout (architecture §2.2). M2 adds the left Semantic Tests panel
+ * and read-only AI Studio; later epics fill browser, execution, and git panels.
  */
-function Panel({ title, children, width }: { title: string; children?: React.ReactNode; width?: number }) {
-  return (
-    <div
-      style={{
-        width,
-        flex: width ? undefined : 1,
-        minWidth: 0,
-        borderRight: '1px solid var(--b0)',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--bg1)',
-      }}
-    >
-      <div
-        style={{
-          height: 34,
-          borderBottom: '1px solid var(--b0)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 12px',
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
-          color: 'var(--t2)',
-        }}
-      >
-        {title}
-      </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: 12, color: 'var(--t2)', fontSize: 12.5 }}>
-        {children ?? <Placeholder />}
-      </div>
-    </div>
-  );
-}
-
-function Placeholder() {
-  return (
-    <div style={{ opacity: 0.7, lineHeight: '18px' }}>
-      Foundation skeleton — populated in a later epic.
-    </div>
-  );
-}
-
 export function WorkspaceScreen({ project }: { project: Project | null }) {
+  const selectedSlug = useSemanticStore((s) => s.selectedSlug);
+  const selectedTest = useSemanticStore((s) => s.selectedTest);
+  const loadingDetail = useSemanticStore((s) => s.loadingDetail);
+  const selectTest = useSemanticStore((s) => s.selectTest);
+  const clearSelection = useSemanticStore((s) => s.clearSelection);
+
+  useEffect(() => {
+    clearSelection();
+  }, [project?.id, clearSelection]);
+
+  if (!project) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: 'var(--t2)', fontSize: 13 }}>Open a project to enter the workspace.</span>
+      </div>
+    );
+  }
+
+  const fw = formatFramework(project.framework);
+
+  const handleSelectTest = (slug: string): void => {
+    if (selectedSlug === slug) {
+      clearSelection();
+      return;
+    }
+    void selectTest(project.id, slug);
+  };
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Toolbar */}
       <div
         style={{
           height: 40,
@@ -69,26 +53,31 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
           flexShrink: 0,
         }}
       >
+        <GitMark source={project.repository.source} size={14} />
         <span style={{ fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--mono)' }}>
-          {project?.repository.slug ?? 'no repository connected'}
+          {formatRepoSlug(project)}
         </span>
         <span style={{ fontSize: 11.5, color: 'var(--t2)' }}>
-          {project ? `${project.framework.adapterId} · ${project.framework.version}` : ''}
+          {fw.name} · {fw.version}
         </span>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: 'var(--t2)', fontFamily: 'var(--mono)' }}>
-          status: {project?.status ?? '—'}
+          {formatWorkspaceStatus(project.status)}
         </span>
       </div>
 
-      {/* Body: three panels */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-        <Panel title="Repository" width={248} />
-        <Panel title="Interactive Browser" />
+        <WorkspaceLeftPanel
+          project={project}
+          selectedSlug={selectedSlug}
+          onSelectTest={handleSelectTest}
+        />
+
         <div
           style={{
-            width: 330,
-            flexShrink: 0,
+            flex: 1,
+            minWidth: 0,
+            borderRight: '1px solid var(--b0)',
             display: 'flex',
             flexDirection: 'column',
             background: 'var(--bg1)',
@@ -101,21 +90,26 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
               display: 'flex',
               alignItems: 'center',
               padding: '0 12px',
-              gap: 8,
-              background: 'var(--ai-bg)',
-              fontSize: 12.5,
+              fontSize: 11,
               fontWeight: 700,
+              letterSpacing: 0.5,
+              textTransform: 'uppercase',
+              color: 'var(--t2)',
             }}
           >
-            AI Test Studio
+            Interactive Browser
           </div>
-          <div style={{ flex: 1, padding: 12, color: 'var(--t2)', fontSize: 12.5 }}>
-            <Placeholder />
+          <div style={{ flex: 1, overflow: 'auto', padding: 12, color: 'var(--t2)', fontSize: 12.5 }}>
+            <div style={{ opacity: 0.7, lineHeight: '18px' }}>
+              Browser surface ships in a later epic. Select a semantic test on the left to preview
+              steps in AI Studio.
+            </div>
           </div>
         </div>
+
+        <AiStudioReadOnlyPanel test={selectedTest} loading={loadingDetail} />
       </div>
 
-      {/* Bottom panel */}
       <div
         style={{
           height: 140,
