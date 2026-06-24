@@ -7,3 +7,5 @@ export { IndexCacheRepository } from './repositories/index-cache-repository.js';
 export type { IIndexCacheRepository, IndexCacheRecord } from './repositories/index-cache-repository.js';
 export type { IndexCachePayload, IndexScanStats } from './types/index-cache-payload.js';
 export { emptyIndexCachePayload } from './types/index-cache-payload.js';
+export { RunRepository } from './repositories/run-repository.js';
+export type { IRunRepository, RunRecord, RunStepRecord } from './repositories/run-repository.js';

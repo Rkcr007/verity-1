@@ -3,10 +3,14 @@ export type {
   ConnectLocalRepositoryRequest,
   ConnectLocalRepositoryResponse,
   PickFolderResponse,
+  CreateProjectFolderRequest,
+  CreateProjectFolderResponse,
   OAuthStartRequest,
   OAuthStartResponse,
   OAuthStatusRequest,
   OAuthStatusResponse,
+  ReadRepositoryFileRequest,
+  ReadRepositoryFileResponse,
   RepositorySource,
 } from './repository.js';
 
@@ -47,6 +51,7 @@ export type {
   SemanticProposalDto,
   SemanticApplyProposalRequest,
   SemanticDiscardProposalRequest,
+  SemanticGetProposalRequest,
 } from './semantic.js';
 
 export type {
@@ -58,6 +63,14 @@ export type {
 } from './ai.js';
 
 export type {
+  AdapterInfoDto,
+  PrerequisiteCheckDto,
+  PrerequisiteReportDto,
+  AdapterListRequest,
+  AdapterCheckPrerequisitesRequest,
+} from './adapter.js';
+
+export type {
   ExecutionStepEventType,
   ExecutionStepEventPayload,
   ExecutionStartedPayload,
@@ -65,6 +78,14 @@ export type {
   ExecutionCompletedPayload,
   FailureClassificationType,
   ExecutionClassifiedPayload,
+  RunStepStatus,
+  RunStepDto,
+  ExecutionRunDto,
+  ExecutionRunRequest,
+  ExecutionRunResponse,
+  ExecutionCancelRequest,
+  ExecutionGetRequest,
+  ExecutionListRequest,
 } from './execution.js';
 
 export type {
@@ -74,3 +95,35 @@ export type {
   GitPushedPayload,
   GitPushFailedPayload,
 } from './git.js';
+
+export type {
+  WizardEntryMode,
+  FolderEntryKind,
+  FolderInspectionDto,
+  InspectFolderRequest,
+  EntryRecommendationDto,
+  RecommendEntryRequest,
+  ScaffoldGreenfieldRequest,
+  ScaffoldGreenfieldResponse,
+  GetRecentProjectResponse,
+  MigrationStepDto,
+  MigrationPlanDto,
+  GetMigrationPlanRequest,
+} from './entry.js';
+
+export type {
+  FrameworkMaturity,
+  EnterpriseTier,
+  FrameworkCatalogEntryDto,
+  GetFrameworkCatalogResponse,
+  RecommendFrameworkMode,
+  RecommendFrameworkRequest,
+  FrameworkRecommendationDto,
+  EnvironmentSetupStepStatus,
+  EnvironmentSetupStepDto,
+  EnvironmentSetupResultDto,
+  SetupEnvironmentRequest,
+  SetupEnvironmentResponse,
+  InstallToolchainRequest,
+  InstallToolchainResponse,
+} from './framework-intelligence.js';

@@ -33,6 +33,13 @@
 
   --font: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  /** macOS hiddenInset title bar — keeps traffic lights off sidebar icons. */
+  --titlebar-inset: 0px;
+}
+
+body[data-platform='darwin'] {
+  --titlebar-inset: 34px;
 }
 
 *,

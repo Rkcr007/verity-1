@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { ValidationError, type Framework, type Project, type WorkspaceId } from '@verity/core';
 import type {
   AnalysisJob,
   AnalysisProgress,
   FileNode,
   IntelligenceSummaryDto,
+  ReadRepositoryFileResponse,
   RepositoryIndexDto,
 } from '@verity/core/ipc';
 import type { IIndexCacheRepository } from '@verity/local-persistence';
-import { detectBestFramework, scanRepositoryStructure, applyIncrementalChanges } from '@verity/repository-intelligence';
+import { buildFileTree, detectBestFramework, scanRepositoryStructure, applyIncrementalChanges } from '@verity/repository-intelligence';
 import type { FileChange } from '@verity/repository-intelligence';
 import type { IProjectService } from './project-service.js';
 import type { DomainEventBus } from '../event-bus.js';
@@ -30,6 +33,7 @@ export interface IIntelligenceService {
   getAnalysisStatus(projectId: WorkspaceId, jobId?: string): AnalysisJob;
   getIndex(projectId: WorkspaceId): RepositoryIndexDto;
   getFileTree(projectId: WorkspaceId): readonly FileNode[];
+  readRepositoryFile(projectId: WorkspaceId, relativePath: string): ReadRepositoryFileResponse;
   getSummary(projectId: WorkspaceId): IntelligenceSummaryDto;
   applyIncrementalUpdate(projectId: WorkspaceId, changes: readonly FileChange[]): void;
 }
@@ -174,8 +178,42 @@ export class IntelligenceService implements IIntelligenceService {
   }
 
   getFileTree(projectId: WorkspaceId): readonly FileNode[] {
+    const project = this.requireRepoPath(projectId);
     const cached = this.indexCache.findByWorkspaceId(projectId);
-    return cached?.payload.fileTree ?? [];
+    if (cached?.payload.fileTree.length) {
+      return cached.payload.fileTree;
+    }
+    return buildFileTree(project.repository.path);
+  }
+
+  readRepositoryFile(projectId: WorkspaceId, relativePath: string): ReadRepositoryFileResponse {
+    const project = this.requireRepoPath(projectId);
+    const repoRoot = resolve(project.repository.path);
+    const safePath = resolveSafeRepoPath(repoRoot, relativePath);
+
+    let stat;
+    try {
+      stat = statSync(safePath);
+    } catch {
+      throw new ValidationError('File not found.', relativePath);
+    }
+    if (!stat.isFile()) {
+      throw new ValidationError('Path is not a file.', relativePath);
+    }
+
+    const maxBytes = 512_000;
+    const buffer = readFileSync(safePath);
+    const truncated = buffer.length > maxBytes;
+    const slice = truncated ? buffer.subarray(0, maxBytes) : buffer;
+    const content = slice.toString('utf8');
+
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    return {
+      path: normalizedPath,
+      content,
+      language: languageFromPath(normalizedPath),
+      truncated,
+    };
   }
 
   getSummary(projectId: WorkspaceId): IntelligenceSummaryDto {
@@ -283,4 +321,38 @@ function emptyProgress(): AnalysisProgress {
     flows: 0,
     understandingScore: 0,
   };
+}
+
+function resolveSafeRepoPath(repoRoot: string, relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (normalized.includes('..')) {
+    throw new ValidationError('Invalid file path.');
+  }
+  const absolute = resolve(repoRoot, normalized);
+  const relCheck = relative(repoRoot, absolute);
+  if (relCheck.startsWith('..') || isAbsolute(relCheck)) {
+    throw new ValidationError('Path escapes repository root.');
+  }
+  return absolute;
+}
+
+function languageFromPath(filePath: string): string {
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {
+    ts: 'typescript',
+    tsx: 'typescript',
+    js: 'javascript',
+    jsx: 'javascript',
+    java: 'java',
+    py: 'python',
+    yaml: 'yaml',
+    yml: 'yaml',
+    json: 'json',
+    xml: 'xml',
+    html: 'html',
+    css: 'css',
+    md: 'markdown',
+    properties: 'properties',
+  };
+  return map[ext] ?? 'plaintext';
 }

@@ -1,11 +1,14 @@
-import type { VerityDatabase, IIndexCacheRepository } from '@verity/local-persistence';
+import type { VerityDatabase, IIndexCacheRepository, IRunRepository } from '@verity/local-persistence';
 import type { DomainEventBus } from './event-bus.js';
+import type { IAdapterRegistryService } from './services/adapter-registry-service.js';
 import type { IAiService } from './services/ai-service.js';
 import type { IIntelligenceService } from './services/intelligence-service.js';
 import type { IRepositoryConnectorService } from './services/repository-connector-service.js';
 import type { IProjectService } from './services/project-service.js';
 import type { IRepositoryWatcherService } from './services/repository-watcher-service.js';
 import type { ISemanticModelService } from './services/semantic-model-service.js';
+import type { IExecutionService } from './services/execution-service.js';
+import type { IWorkspaceEntryService } from './services/workspace-entry-service.js';
 import { createToken } from './service-container.js';
 
 /**
@@ -16,9 +19,13 @@ export const Tokens = {
   EventBus: createToken<DomainEventBus>('EventBus'),
   ProjectService: createToken<IProjectService>('ProjectService'),
   IndexCacheRepository: createToken<IIndexCacheRepository>('IndexCacheRepository'),
+  RunRepository: createToken<IRunRepository>('RunRepository'),
   RepositoryConnector: createToken<IRepositoryConnectorService>('RepositoryConnector'),
   IntelligenceService: createToken<IIntelligenceService>('IntelligenceService'),
+  AdapterRegistry: createToken<IAdapterRegistryService>('AdapterRegistry'),
   RepositoryWatcher: createToken<IRepositoryWatcherService>('RepositoryWatcher'),
   SemanticModelService: createToken<ISemanticModelService>('SemanticModelService'),
   AiService: createToken<IAiService>('AiService'),
+  ExecutionService: createToken<IExecutionService>('ExecutionService'),
+  WorkspaceEntry: createToken<IWorkspaceEntryService>('WorkspaceEntry'),
 } as const;

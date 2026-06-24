@@ -1,13 +1,16 @@
 import { join } from 'node:path';
-import { openDatabase, IndexCacheRepository, ProjectRepository } from '@verity/local-persistence';
+import { openDatabase, IndexCacheRepository, ProjectRepository, RunRepository } from '@verity/local-persistence';
 import { ServiceContainer } from './service-container.js';
 import { DomainEventBus } from './event-bus.js';
 import { RepositoryConnectorService } from './services/repository-connector-service.js';
 import { IntelligenceService } from './services/intelligence-service.js';
 import { SemanticModelService } from './services/semantic-model-service.js';
+import { AdapterRegistryService } from './services/adapter-registry-service.js';
 import { AiService } from './services/ai-service.js';
 import { RepositoryWatcherService } from './services/repository-watcher-service.js';
 import { ProjectService } from './services/project-service.js';
+import { ExecutionService } from './services/execution-service.js';
+import { WorkspaceEntryService } from './services/workspace-entry-service.js';
 import { Tokens } from './tokens.js';
 
 export interface ContainerOptions {
@@ -43,6 +46,10 @@ export function buildContainer(options: ContainerOptions = {}): ServiceContainer
       const { db } = c.resolve(Tokens.Database);
       return new IndexCacheRepository(db);
     })
+    .register(Tokens.RunRepository, (c) => {
+      const { db } = c.resolve(Tokens.Database);
+      return new RunRepository(db);
+    })
     .register(Tokens.RepositoryConnector, (c) => {
       return new RepositoryConnectorService(
         c.resolve(Tokens.ProjectService),
@@ -54,6 +61,12 @@ export function buildContainer(options: ContainerOptions = {}): ServiceContainer
         c.resolve(Tokens.ProjectService),
         c.resolve(Tokens.IndexCacheRepository),
         c.resolve(Tokens.EventBus),
+      );
+    })
+    .register(Tokens.AdapterRegistry, (c) => {
+      return new AdapterRegistryService(
+        c.resolve(Tokens.ProjectService),
+        c.resolve(Tokens.IndexCacheRepository),
       );
     })
     .register(
@@ -74,12 +87,34 @@ export function buildContainer(options: ContainerOptions = {}): ServiceContainer
       return new SemanticModelService(
         c.resolve(Tokens.ProjectService),
         c.resolve(Tokens.EventBus),
+        c.resolve(Tokens.AdapterRegistry),
+        c.resolve(Tokens.RunRepository),
       );
     })
     .register(Tokens.AiService, (c) => {
       return new AiService(
         c.resolve(Tokens.ProjectService),
         c.resolve(Tokens.SemanticModelService),
+        c.resolve(Tokens.IntelligenceService),
+        c.resolve(Tokens.EventBus),
+      );
+    })
+    .register(Tokens.ExecutionService, (c) => {
+      return new ExecutionService(
+        c.resolve(Tokens.ProjectService),
+        c.resolve(Tokens.SemanticModelService),
+        c.resolve(Tokens.AdapterRegistry),
+        c.resolve(Tokens.RunRepository),
+        c.resolve(Tokens.EventBus),
+      );
+    })
+    .register(Tokens.WorkspaceEntry, (c) => {
+      const demoAssets = join(__dirname, '../../assets/demo-shop-e2e');
+      return new WorkspaceEntryService(
+        c.resolve(Tokens.ProjectService),
+        c.resolve(Tokens.RepositoryConnector),
+        c.resolve(Tokens.IntelligenceService),
+        demoAssets,
       );
     });
 

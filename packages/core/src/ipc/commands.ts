@@ -5,29 +5,59 @@ import type {
   WorkspaceId,
 } from '../index.js';
 import type {
+  AdapterCheckPrerequisitesRequest,
+  AdapterInfoDto,
   AiGenerateRequest,
   AiGenerateResponse,
   AnalysisJob,
   BusinessFlowDto,
   ConnectLocalRepositoryRequest,
   ConnectLocalRepositoryResponse,
+  CreateProjectFolderRequest,
+  CreateProjectFolderResponse,
   DetectFrameworkRequest,
+  EntryRecommendationDto,
+  ExecutionCancelRequest,
+  ExecutionGetRequest,
+  ExecutionListRequest,
+  ExecutionRunDto,
+  ExecutionRunRequest,
+  ExecutionRunResponse,
   FileNode,
+  FolderInspectionDto,
   Framework,
+  FrameworkRecommendationDto,
   GetAnalysisStatusRequest,
+  GetFrameworkCatalogResponse,
+  GetMigrationPlanRequest,
+  InstallToolchainRequest,
+  InstallToolchainResponse,
+  GetRecentProjectResponse,
+  InspectFolderRequest,
   IntelligenceSummaryDto,
   LocatorDto,
+  MigrationPlanDto,
   OAuthStartRequest,
   OAuthStartResponse,
   OAuthStatusRequest,
   OAuthStatusResponse,
   PageDto,
   PickFolderResponse,
+  PrerequisiteReportDto,
   ProjectScopedRequest,
+  ReadRepositoryFileRequest,
+  ReadRepositoryFileResponse,
+  RecommendEntryRequest,
+  RecommendFrameworkRequest,
   RepositoryIndexDto,
+  ScaffoldGreenfieldRequest,
+  ScaffoldGreenfieldResponse,
+  SetupEnvironmentRequest,
+  SetupEnvironmentResponse,
   SemanticApplyProposalRequest,
   SemanticDeleteRequest,
   SemanticDiscardProposalRequest,
+  SemanticGetProposalRequest,
   SemanticGetRequest,
   SemanticListRequest,
   SemanticPreviewCodeRequest,
@@ -86,6 +116,26 @@ export interface CommandMap {
     request: { projectId: WorkspaceId };
     response: Project;
   };
+  /** Most recently active READY project (M1.5 resume). */
+  'project:get-recent': {
+    request: void;
+    response: GetRecentProjectResponse;
+  };
+  /** Bundled demo workspace — no company repo required (M1.5). */
+  'project:open-demo': {
+    request: void;
+    response: Project;
+  };
+  /** Scaffold Playwright Java in an empty folder (M1.5 greenfield). */
+  'project:scaffold-greenfield': {
+    request: ScaffoldGreenfieldRequest;
+    response: ScaffoldGreenfieldResponse;
+  };
+  /** Resolve Maven deps and install Playwright browsers after scaffold (M1.6). */
+  'project:setup-environment': {
+    request: SetupEnvironmentRequest;
+    response: SetupEnvironmentResponse;
+  };
 
   // ---- Settings ----
   'settings:get': {
@@ -102,6 +152,16 @@ export interface CommandMap {
     request: void;
     response: PickFolderResponse;
   };
+  /** Choose parent location before creating a new project folder (M1.7). */
+  'repository:pick-parent-folder': {
+    request: void;
+    response: PickFolderResponse;
+  };
+  /** Create an empty project folder under a parent path (M1.7). */
+  'repository:create-folder': {
+    request: CreateProjectFolderRequest;
+    response: CreateProjectFolderResponse;
+  };
   'repository:connect-local': {
     request: ConnectLocalRepositoryRequest;
     response: ConnectLocalRepositoryResponse;
@@ -113,6 +173,16 @@ export interface CommandMap {
   'repository:oauth-status': {
     request: OAuthStatusRequest;
     response: OAuthStatusResponse;
+  };
+  /** Inspect folder for empty / selenium / playwright signals (M1.5). */
+  'repository:inspect-folder': {
+    request: InspectFolderRequest;
+    response: FolderInspectionDto;
+  };
+  /** Read a repository file for in-workspace preview (M2 editor surface). */
+  'repository:read-file': {
+    request: ReadRepositoryFileRequest;
+    response: ReadRepositoryFileResponse;
   };
 
   // ---- Intelligence (M1) ----
@@ -152,6 +222,31 @@ export interface CommandMap {
     request: ProjectScopedRequest;
     response: IntelligenceSummaryDto;
   };
+  /** Rule-based Welcome / wizard routing recommendation (M1.5). */
+  'intelligence:recommend-entry': {
+    request: RecommendEntryRequest;
+    response: EntryRecommendationDto;
+  };
+  /** Enterprise framework catalog for greenfield picker (M1.6). */
+  'intelligence:get-framework-catalog': {
+    request: void;
+    response: GetFrameworkCatalogResponse;
+  };
+  /** Rule-based stack recommendation from mode + app description (M1.6). */
+  'intelligence:recommend-framework': {
+    request: RecommendFrameworkRequest;
+    response: FrameworkRecommendationDto;
+  };
+  /** One-click JDK/Maven or Node install for adapter prerequisites (M7). */
+  'toolchain:install-for-adapter': {
+    request: InstallToolchainRequest;
+    response: InstallToolchainResponse;
+  };
+  /** Selenium → Playwright Java migration plan (M1.5, rule-based). */
+  'intelligence:get-migration-plan': {
+    request: GetMigrationPlanRequest;
+    response: MigrationPlanDto;
+  };
 
   // ---- Semantic model (M2 / M4) ----
   'semantic:list': {
@@ -182,11 +277,43 @@ export interface CommandMap {
     request: SemanticDiscardProposalRequest;
     response: void;
   };
+  'semantic:get-proposal': {
+    request: SemanticGetProposalRequest;
+    response: SemanticProposalDto;
+  };
 
   // ---- AI orchestration (M4) ----
   'ai:generate': {
     request: AiGenerateRequest;
     response: AiGenerateResponse;
+  };
+
+  // ---- Execution (M5) ----
+  'execution:run': {
+    request: ExecutionRunRequest;
+    response: ExecutionRunResponse;
+  };
+  'execution:cancel': {
+    request: ExecutionCancelRequest;
+    response: void;
+  };
+  'execution:get': {
+    request: ExecutionGetRequest;
+    response: ExecutionRunDto;
+  };
+  'execution:list': {
+    request: ExecutionListRequest;
+    response: readonly ExecutionRunDto[];
+  };
+
+  // ---- Adapter registry (M3) ----
+  'adapter:list': {
+    request: void;
+    response: readonly AdapterInfoDto[];
+  };
+  'adapter:check-prerequisites': {
+    request: AdapterCheckPrerequisitesRequest;
+    response: PrerequisiteReportDto;
   };
 }
 
@@ -202,12 +329,20 @@ export const COMMAND_CHANNELS = [
   'project:get',
   'project:open',
   'project:finalize',
+  'project:get-recent',
+  'project:open-demo',
+  'project:scaffold-greenfield',
+  'project:setup-environment',
   'settings:get',
   'settings:update',
   'repository:pick-folder',
+  'repository:pick-parent-folder',
+  'repository:create-folder',
   'repository:connect-local',
   'repository:oauth-start',
   'repository:oauth-status',
+  'repository:inspect-folder',
+  'repository:read-file',
   'intelligence:detect-framework',
   'intelligence:start-analysis',
   'intelligence:get-analysis-status',
@@ -217,6 +352,11 @@ export const COMMAND_CHANNELS = [
   'intelligence:get-flows',
   'intelligence:get-locators',
   'intelligence:get-summary',
+  'intelligence:recommend-entry',
+  'intelligence:get-framework-catalog',
+  'intelligence:recommend-framework',
+  'toolchain:install-for-adapter',
+  'intelligence:get-migration-plan',
   'semantic:list',
   'semantic:get',
   'semantic:write',
@@ -224,5 +364,12 @@ export const COMMAND_CHANNELS = [
   'semantic:preview-code',
   'semantic:apply-proposal',
   'semantic:discard-proposal',
+  'semantic:get-proposal',
   'ai:generate',
+  'execution:run',
+  'execution:cancel',
+  'execution:get',
+  'execution:list',
+  'adapter:list',
+  'adapter:check-prerequisites',
 ] as const satisfies readonly CommandChannel[];

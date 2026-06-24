@@ -15,10 +15,13 @@
 |-----------|------|--------|----------------|
 | **M0** | Foundation | ✅ Complete | Monorepo, Electron shell, IPC, SQLite, design system, CI |
 | M1 | Repository Intelligence | 🔄 In progress | GitHub OAuth + tree-sitter optional |
+| **M1.5** | Workspace entry paths | ✅ Complete | Welcome router, scaffold, demo, migrate, resume |
+| **M1.6** | Framework intelligence | ✅ Complete | Enterprise catalog, recommendations, auto-setup |
+| **M1.7** | Multi-adapter + toolchain | ✅ Complete | Playwright TS scaffold, one-click toolchain, LLM rec, repo signals |
 | M2 | Semantic Model | ✅ Complete | Left panel wired; run status in M5 |
-| M3 | Playwright Java Adapter | ⏳ Pending | Transpile, prerequisites, adapter registry |
-| M4 | AI Test Studio | ⏳ Pending | Prompt → stream → apply |
-| M5 | Execution Engine | ⏳ Pending | Run tests, timeline, Executions screen |
+| M3 | Playwright Java Adapter | ✅ Complete | Transpile, prerequisites, Maven `run()` |
+| M4 | AI Test Studio | ✅ Complete | Prompt → stream → proposal → apply |
+| M5 | Execution Engine | ✅ Complete | Run tests, timeline, Executions screen |
 | M6 | Git Integration | ⏳ Pending | Status, diff, commit modal, push |
 | M7 | Polish & Error States | ⏳ Pending | Offline, prerequisites, auto-update |
 | **MVP** | Closed beta | ⏳ Pending | Full happy path shipped |
@@ -68,7 +71,21 @@
 
 - [x] `RepositoryConnectorService` — local folder picker, connect/open, persist repo on project
 - [ ] GitHub OAuth (PKCE) — stub only (`repository:oauth-start` returns not-implemented)
-- [x] Create Project Wizard — 5 steps (Name → Source → Framework → Analysis → Ready)
+- [x] Create Project Wizard — 5 steps with **existing / greenfield / migrate** modes (M1.5)
+- [x] **Welcome entry router** — resume, start fresh, connect, migrate, demo sandbox (M1.5)
+- [x] **Journey previews** — each Welcome card shows step-by-step path (M1.6)
+- [x] **Enterprise framework catalog** — Playwright Java/TS, Selenium, Cypress, Python (M1.6)
+- [x] **Framework intelligence** — rule-based recommend from app description + mode (M1.6)
+- [x] **Greenfield framework picker** — wizard Step 1 stack selection (M1.6)
+- [x] **Auto environment setup** — Maven resolve, compile, Playwright browser install (M1.6)
+- [x] **Playwright TypeScript adapter** — scaffold, npm install, transpile, prerequisites (M1.7)
+- [x] **One-click toolchain** — JDK/Maven (brew/winget) and Node via `toolchain:install-for-adapter` (M7)
+- [x] **LLM framework recommendation** — Claude when `ANTHROPIC_API_KEY` set, rules fallback (M4)
+- [x] **Repo signal intelligence** — connect/migrate recommendations from detected stack (M1.7)
+- [x] **Greenfield scaffold** — Playwright Java Maven + page objects + `.verity/tests/` (M1.5)
+- [x] **Folder inspection** — empty / Selenium / Playwright routing + AI suggestion banner (M1.5)
+- [x] **Demo workspace** — bundled `demo-shop-e2e` fixture, no company repo required (M1.5)
+- [x] **Selenium migration plan** — rule-based incremental path UI (M1.5)
 - [x] Framework detection — `pom.xml` parser, `PlaywrightJavaDetector` (`packages/repository-intelligence`)
 - [x] Structural scan — file tree, Java locator extraction, index cache in SQLite
 - [x] AI enrichment + understanding score — rule-based enricher + score calculator
@@ -87,31 +104,35 @@
 
 ## M3 — Playwright Java Adapter (EPIC 3)
 
-- [ ] `packages/adapter-playwright-java`
-- [ ] Prerequisites checker (JDK, Maven, browsers)
-- [ ] Transpiler — semantic step → Java
-- [ ] `AdapterRegistry` + Settings framework UI
+- [x] `packages/adapter-playwright-java` — TestAdapter, prerequisites, transpiler
+- [x] `AdapterRegistryService` + IPC (`adapter:list`, `adapter:check-prerequisites`)
+- [x] Semantic preview/apply wired to real transpiler
+- [x] Prerequisite report UI — wizard Step 2 + Settings screen
+- [ ] Execution `run()` — stub until M5
 
 ---
 
 ## M4 — AI Test Studio (EPIC 4)
 
-- [ ] Prompt console + quick chips
-- [ ] Streaming step generation (Claude API)
-- [ ] `SemanticStepCard`, code preview toggle
-- [ ] Proposal review — apply / discard
-- [ ] AI reasoning trace (bottom panel)
-- [ ] `packages/ai-orchestration`
+- [x] Prompt console + quick chips (`AiStudioPanel`)
+- [x] Step generation — Claude API + rules fallback (`packages/ai-orchestration`)
+- [x] Streaming steps + reasoning trace (IPC events → bottom panel)
+- [x] `SemanticStepCard`, code preview toggle
+- [x] Proposal review — apply / discard (`semantic:apply-proposal`)
+- [x] `semantic:get-proposal` IPC
 
 ---
 
 ## M5 — Execution Engine (EPIC 5)
 
-- [ ] Maven subprocess manager
-- [ ] Step timeline UI + evidence capture
-- [ ] Executions screen (list + detail)
-- [ ] Failure classification
-- [ ] `packages/execution-engine`
+- [x] `packages/execution-engine` — Maven subprocess runner
+- [x] Playwright Java adapter `run()` via `mvn -Dtest=ClassName test`
+- [x] `ExecutionService` + `RunRepository` (SQLite persistence)
+- [x] IPC: `execution:run`, `execution:cancel`, `execution:get`, `execution:list`
+- [x] Step timeline UI + Execution Logs bottom tab
+- [x] Executions screen (list + step detail)
+- [x] Failure classification (rule-based post-run)
+- [x] Semantic test status from last run (pass/fail/draft)
 
 ---
 
@@ -168,6 +189,7 @@ verity/
 │   ├── local-persistence/# SQLite                   ✅
 │   ├── semantic-model/   # YAML v1 schema R/W       ✅
 │   ├── adapter-contract/ # TestAdapter ACL          ✅
+│   ├── adapter-playwright-java/ # M3 transpiler      ✅
 │   └── repository-intelligence/ # detectors, parsers ✅
 ├── apps/desktop/src/main/services/
 │   ├── repository-connector-service.ts  ✅
@@ -178,7 +200,8 @@ verity/
 └── PROGRESS.md           # This file                ✅
 ```
 
-**Planned packages (not yet created):** `adapter-playwright-java`, `execution-engine`, `git-engine`, `ai-orchestration`
+**Planned packages (not yet created):** `git-engine`
+**Added:** `adapter-playwright-typescript`, `toolchain`, `ai-orchestration`, `execution-engine`
 
 ---
 
@@ -186,6 +209,12 @@ verity/
 
 | Date | Change |
 |------|--------|
+| 2026-06-24 | **M5** — Execution engine, Maven run, timeline, Executions screen, run persistence |
+| 2026-06-24 | **M4** — AI Test Studio: prompt, streaming steps, apply/discard, reasoning panel |
+| 2026-06-24 | **M2 E2-S4** — Workspace Repository file tree (IDE explorer), read-only Editor tab, live tree fallback + auto-index |
+| 2026-06-24 | **M1.7** — Playwright TS adapter, toolchain install, LLM framework rec, repo-signal intelligence |
+| 2026-06-24 | **M1.6** — Enterprise framework catalog, intelligence recommendations, greenfield picker, auto-setup |
+| 2026-06-24 | **M1.5** — Welcome entry router, greenfield scaffold, demo sandbox, Selenium migration plan, resume |
 | 2026-06-24 | **M2 E2-S3** — Workspace left panel Semantic Tests list, read-only AI Studio |
 | 2026-06-24 | **M1 E1-S5** — File watcher + incremental indexer |
 | 2026-06-24 | **M1 E1-S2** — `repository-intelligence` package, POM parser, PlaywrightJavaDetector, wizard detection failure UI |

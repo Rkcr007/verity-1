@@ -6,6 +6,8 @@ export interface ExecutionConfig {
   readonly headless: boolean;
   readonly parallelWorkers: number;
   readonly captureEvidence: boolean;
+  /** When aborted, the adapter should terminate the subprocess. */
+  readonly abortSignal?: AbortSignal;
 }
 
 export type ExecutionEventType =

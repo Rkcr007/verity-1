@@ -1,0 +1,24 @@
+{
+  "name": "@verity/ai-orchestration",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LLM orchestration for Verity — framework recommendations (M4).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@verity/core": "workspace:*",
+    "@verity/repository-intelligence": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

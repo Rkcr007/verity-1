@@ -28,9 +28,13 @@ export function openDatabase(filePath: string): { db: VerityDatabase; close: () 
     const db = drizzle(sqlite, { schema });
     return { db, close: () => sqlite.close() };
   } catch (error) {
-    throw new PersistenceError(
-      'Could not open the local database.',
-      error instanceof Error ? error.message : String(error),
-    );
+    const detail = error instanceof Error ? error.message : String(error);
+    const nativeHint =
+      detail.includes('NODE_MODULE_VERSION') ||
+      detail.includes('was compiled against') ||
+      detail.includes('ERR_DLOPEN_FAILED')
+        ? 'Native SQLite binding mismatch — run: pnpm --filter @verity/desktop rebuild:native'
+        : detail;
+    throw new PersistenceError('Could not open the local database.', nativeHint);
   }
 }

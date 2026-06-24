@@ -33,3 +33,36 @@ export {
   DEFAULT_DETECTORS,
   type FrameworkDetectionOutcome,
 } from './registry.js';
+
+export {
+  inspectFolder,
+  isFolderEmpty,
+  detectSeleniumJavaSignals,
+  recommendEntry,
+  type FolderEntryKind,
+  type SuggestedWizardMode,
+  type FolderInspection,
+  type EntryRecommendation,
+} from './inspect/folder-inspect.js';
+
+export {
+  analyzeRepoFrameworkSignals,
+  type RepoFrameworkSignals,
+} from './analyze/repo-signals.js';
+
+export {
+  FRAMEWORK_CATALOG,
+  getFrameworkCatalog,
+  getCatalogEntry,
+  getScaffoldableFrameworks,
+  type FrameworkCatalogEntry,
+  type FrameworkMaturity,
+  type EnterpriseTier,
+} from './catalog/framework-catalog.js';
+
+export {
+  recommendFramework,
+  type RecommendFrameworkInput,
+  type RecommendFrameworkMode,
+  type FrameworkRecommendation,
+} from './catalog/recommend-framework.js';

@@ -8,7 +8,7 @@ import {
 } from '@verity/adapter-contract';
 import type { AdapterDetector } from '../adapter-detector.js';
 import { allDependencies, parsePackageJson } from '../parsers/package-json.js';
-import { countPageObjectFiles } from '../walk.js';
+import { countTypeScriptPageObjectFiles } from '../walk.js';
 
 /**
  * Detect Playwright TypeScript via package.json (E1-S2 T2 — future adapter path).
@@ -40,10 +40,10 @@ export class PlaywrightTypeScriptDetector implements AdapterDetector {
     ];
     let confidence = 0.82;
 
-    const pageObjects = countPageObjectFiles(repoRoot);
+    const pageObjects = countTypeScriptPageObjectFiles(repoRoot);
     const pattern = pageObjects > 0 ? 'page-object-model' : 'unknown';
     if (pageObjects > 0) {
-      reasons.push(`${pageObjects} *Page.java file(s)`);
+      reasons.push(`${pageObjects} TypeScript page object file(s)`);
       confidence += 0.05;
     }
 

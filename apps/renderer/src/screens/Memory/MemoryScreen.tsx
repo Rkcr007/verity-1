@@ -8,6 +8,7 @@ import type {
   RepositoryIndexDto,
 } from '@verity/core/ipc';
 import { AdapterBadge } from '../../components/AdapterBadge.js';
+import { ChromeScreenHeader } from '../../components/ChromeScreenHeader.js';
 import { IC, Icon } from '../../components/Icon.js';
 import { Pill } from '../../components/Pill.js';
 import { invoke } from '../../ipc/client.js';
@@ -75,18 +76,7 @@ export function MemoryScreen({ project }: { project: Project | null }): React.Re
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <header
-        style={{
-          height: 48,
-          borderBottom: '1px solid var(--b0)',
-          background: 'var(--bg1)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 18px',
-          gap: 10,
-          flexShrink: 0,
-        }}
-      >
+      <ChromeScreenHeader>
         <Icon d={IC.mem} size={16} stroke="var(--ai)" />
         <span style={{ fontSize: 14, fontWeight: 700 }}>AI Memory</span>
         {project && (
@@ -127,7 +117,7 @@ export function MemoryScreen({ project }: { project: Project | null }): React.Re
           <Icon d={IC.ws} size={13} />
           Workspace
         </button>
-      </header>
+      </ChromeScreenHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
         {!project ? (

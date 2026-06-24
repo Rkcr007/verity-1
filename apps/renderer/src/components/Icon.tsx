@@ -24,6 +24,7 @@ export const IC = {
   flow: 'M4 12h16M4 6h10M4 18h7',
   target: 'M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2',
   layers: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  home: 'M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V9.5z',
 } as const;
 
 export type IconName = keyof typeof IC;

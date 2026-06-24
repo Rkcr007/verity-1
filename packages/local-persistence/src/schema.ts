@@ -30,6 +30,7 @@ export const runs = sqliteTable('runs', {
   id: text('id').primaryKey(),
   workspaceId: text('workspace_id').notNull(),
   semanticTestId: text('semantic_test_id').notNull(),
+  semanticTestName: text('semantic_test_name').notNull().default(''),
   branch: text('branch').notNull(),
   status: text('status').notNull(),
   /** FailureClassification, JSON-encoded — null until classified (D-03). */
@@ -84,6 +85,7 @@ export const SCHEMA_DDL = `
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL,
     semantic_test_id TEXT NOT NULL,
+    semantic_test_name TEXT NOT NULL DEFAULT '',
     branch TEXT NOT NULL,
     status TEXT NOT NULL,
     classification TEXT,

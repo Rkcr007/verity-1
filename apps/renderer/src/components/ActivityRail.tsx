@@ -27,14 +27,15 @@ export function ActivityRail() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '10px 0',
+        paddingTop: 'calc(10px + var(--titlebar-inset))',
+        paddingBottom: 10,
         gap: 3,
         zIndex: 30,
       }}
     >
       <div
-        onClick={() => go('workspace')}
-        title="Verity"
+        onClick={() => go('welcome')}
+        title="Home — back to start"
         style={{
           width: 32,
           height: 32,

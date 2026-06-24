@@ -23,6 +23,8 @@ const commandSet = new Set<string>(COMMAND_CHANNELS);
 const eventSet = new Set<string>(EVENT_CHANNELS);
 
 const bridge: VerityBridge = {
+  platform: process.platform,
+
   invoke<C extends CommandChannel>(
     channel: C,
     request: CommandRequest<C>,

@@ -23,8 +23,11 @@ import {
   validateSemanticTest,
 } from '@verity/semantic-model';
 import { fromSemanticTestDto, toSemanticTestDto } from '../mappers/semantic-mapper.js';
-import type { IProjectService } from './project-service.js';
 import type { DomainEventBus } from '../event-bus.js';
+import type { IProjectService } from './project-service.js';
+import type { IRunRepository } from '@verity/local-persistence';
+import type { IAdapterRegistryService } from './adapter-registry-service.js';
+import type { SemanticTestRunStatus } from '@verity/core/ipc';
 
 /**
  * SemanticModelService (M2) — filesystem-backed CRUD for `.verity/tests/*.yaml`.
@@ -42,6 +45,13 @@ export interface ISemanticModelService {
     prompt: string,
     test: SemanticTestDto,
   ): SemanticProposalDto;
+  createProposalWithId(
+    projectId: WorkspaceId,
+    prompt: string,
+    test: SemanticTestDto,
+    proposalId: ProposalId,
+  ): SemanticProposalDto;
+  getProposal(projectId: WorkspaceId, proposalId: ProposalId): SemanticProposalDto;
 }
 
 export class SemanticModelService implements ISemanticModelService {
@@ -50,6 +60,8 @@ export class SemanticModelService implements ISemanticModelService {
   constructor(
     private readonly projects: IProjectService,
     private readonly bus: DomainEventBus,
+    private readonly adapters: IAdapterRegistryService,
+    private readonly runs: IRunRepository,
   ) {}
 
   list(projectId: WorkspaceId): readonly SemanticTestSummaryDto[] {
@@ -62,11 +74,13 @@ export class SemanticModelService implements ISemanticModelService {
         const slug = slugFromSemanticTestPath(join(SEMANTIC_TESTS_DIR, name)) ?? name.replace('.yaml', '');
         const content = readFileSync(join(dir, name), 'utf8');
         const test = parseSemanticTestYaml(content);
+        const latest = this.runs.findLatestForTest(projectId, slug);
+        const status = deriveRunStatus(latest?.status);
         return {
           slug,
           name: test.name,
           stepCount: test.steps.length,
-          status: 'draft' as const,
+          status,
           adapter: test.adapter,
         };
       })
@@ -110,37 +124,15 @@ export class SemanticModelService implements ISemanticModelService {
     unlinkSync(filePath);
   }
 
-  previewCode(_projectId: WorkspaceId, dto: SemanticTestDto): SemanticPreviewCodeResponse {
-    const test = fromSemanticTestDto(dto);
-    const className = toClassName(test.id);
-    const lines = test.steps.map(
-      (step, i) =>
-        `    // Step ${i + 1}: ${step.intent}\n    // action: ${step.action}\n    // expected: ${step.expected}`,
-    );
-
-    const content = `package com.verity.generated;
-
-import org.junit.jupiter.api.Test;
-import com.microsoft.playwright.*;
-
-/** Generated preview — full transpiler ships in adapter-playwright-java (M3). */
-public class ${className} {
-  @Test
-  void ${toMethodName(test.id)}() {
-${lines.join('\n\n')}
-  }
-}
-`;
-
+  previewCode(projectId: WorkspaceId, dto: SemanticTestDto): SemanticPreviewCodeResponse {
+    const result = this.adapters.transpilePreview(projectId, dto);
     return {
-      files: [
-        {
-          path: `src/test/java/com/verity/generated/${className}.java`,
-          content,
-          type: 'create',
-        },
-      ],
-      warnings: ['Preview uses stub transpiler until Playwright Java adapter (M3) lands.'],
+      files: result.files.map((f) => ({
+        path: f.path,
+        content: f.content,
+        type: f.type,
+      })),
+      warnings: [...result.warnings],
     };
   }
 
@@ -149,9 +141,22 @@ ${lines.join('\n\n')}
     prompt: string,
     test: SemanticTestDto,
   ): SemanticProposalDto {
+    return this.createProposalWithId(projectId, prompt, test, ProposalId());
+  }
+
+  createProposalWithId(
+    projectId: WorkspaceId,
+    prompt: string,
+    test: SemanticTestDto,
+    proposalId: ProposalId,
+  ): SemanticProposalDto {
     const preview = this.previewCode(projectId, test);
+    const avgConfidence =
+      test.steps.length > 0
+        ? test.steps.reduce((sum, s) => sum + s.confidence, 0) / test.steps.length
+        : 0.75;
     const proposal: SemanticProposalDto = {
-      id: ProposalId(),
+      id: proposalId,
       projectId,
       prompt,
       test,
@@ -160,11 +165,15 @@ ${lines.join('\n\n')}
         type: f.type,
         summary: `Generated ${f.path}`,
       })),
-      proposalConfidence: 0.75,
+      proposalConfidence: avgConfidence,
       status: 'draft',
     };
     this.proposals.set(proposal.id, proposal);
     return proposal;
+  }
+
+  getProposal(projectId: WorkspaceId, proposalId: ProposalId): SemanticProposalDto {
+    return this.requireProposal(projectId, proposalId);
   }
 
   applyProposal(request: SemanticApplyProposalRequest): SemanticProposalDto {
@@ -235,14 +244,10 @@ ${lines.join('\n\n')}
   }
 }
 
-function toClassName(slug: string): string {
-  return slug
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-}
-
-function toMethodName(slug: string): string {
-  const className = toClassName(slug);
-  return className.charAt(0).toLowerCase() + className.slice(1);
+function deriveRunStatus(
+  runStatus: 'passed' | 'failed' | 'cancelled' | 'running' | undefined,
+): SemanticTestRunStatus {
+  if (runStatus === 'passed') return 'pass';
+  if (runStatus === 'failed' || runStatus === 'cancelled') return 'fail';
+  return 'draft';
 }

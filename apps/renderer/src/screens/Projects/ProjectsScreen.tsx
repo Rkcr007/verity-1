@@ -1,8 +1,10 @@
 import type { Project } from '@verity/core';
+import { VerityError } from '@verity/core';
 import { AdapterBadge } from '../../components/AdapterBadge.js';
 import { GitMark } from '../../components/GitMark.js';
 import { IC, Icon } from '../../components/Icon.js';
 import { Pill } from '../../components/Pill.js';
+import { ChromeScreenHeader } from '../../components/ChromeScreenHeader.js';
 import { useProjects } from '../../store/project-store.js';
 import { useRouter } from '../../store/router-store.js';
 import { useToast } from '../../store/toast-store.js';
@@ -20,6 +22,7 @@ export function ProjectsScreen(): React.ReactElement {
   const error = useProjects((s) => s.error);
   const openProject = useProjects((s) => s.openProject);
   const go = useRouter((s) => s.go);
+  const startCreate = useRouter((s) => s.startCreate);
   const toast = useToast((s) => s.show);
 
   const handleOpen = async (project: Project): Promise<void> => {
@@ -27,25 +30,20 @@ export function ProjectsScreen(): React.ReactElement {
       await openProject(project.id);
       go('workspace');
       toast(`Opened ${project.name}`);
-    } catch {
-      toast('Could not open project', 'err');
+    } catch (error) {
+      const message =
+        error instanceof VerityError
+          ? error.userMessage
+          : error instanceof Error
+            ? error.message
+            : 'Could not open project';
+      toast(message, 'err');
     }
   };
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <header
-        style={{
-          height: 48,
-          borderBottom: '1px solid var(--b0)',
-          background: 'var(--bg1)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 18px',
-          gap: 10,
-          flexShrink: 0,
-        }}
-      >
+      <ChromeScreenHeader>
         <span style={{ fontSize: 14, fontWeight: 700 }}>Projects</span>
         <Pill>{projects.length} repos</Pill>
         <div style={{ flex: 1 }} />
@@ -78,7 +76,7 @@ export function ProjectsScreen(): React.ReactElement {
         </div>
         <button
           type="button"
-          onClick={() => go('create')}
+          onClick={() => startCreate('existing')}
           style={{
             height: 32,
             padding: '0 13px',
@@ -96,7 +94,7 @@ export function ProjectsScreen(): React.ReactElement {
           <Icon d={IC.plus} size={14} stroke="white" strokeWidth={2} />
           Connect repo
         </button>
-      </header>
+      </ChromeScreenHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
         {error ? (
@@ -133,7 +131,7 @@ export function ProjectsScreen(): React.ReactElement {
                   onOpen={() => void handleOpen(project)}
                 />
               ))}
-              <ConnectSlot onClick={() => go('create')} />
+              <ConnectSlot onClick={() => startCreate('existing')} />
             </div>
           </>
         )}

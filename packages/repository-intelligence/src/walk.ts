@@ -56,3 +56,12 @@ export function countPageObjectFiles(repoRoot: string): number {
   });
   return count;
 }
+
+/** Count TypeScript page object files (`*.page.ts`, `*Page.ts`). */
+export function countTypeScriptPageObjectFiles(repoRoot: string): number {
+  let count = 0;
+  walkRepository(repoRoot, (_fullPath, name) => {
+    if (name.endsWith('.page.ts') || name.endsWith('Page.ts')) count += 1;
+  });
+  return count;
+}

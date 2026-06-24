@@ -1,5 +1,6 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 import { join } from 'node:path';
+import { VerityError } from '@verity/core';
 import type { ServiceContainer } from './service-container.js';
 import { buildElectronContainer } from './container.js';
 import { IPCRouter } from './ipc-router.js';
@@ -19,6 +20,8 @@ import { Tokens } from './tokens.js';
 const DEV_SERVER_URL = process.env.VERITY_RENDERER_URL ?? 'http://localhost:5173';
 const isDev = !app.isPackaged;
 
+app.setName('Verity');
+
 let container: ServiceContainer | null = null;
 let router: IPCRouter | null = null;
 let forwarder: IPCForwarder | null = null;
@@ -31,7 +34,12 @@ function createWindow(bus: DomainEventBus): BrowserWindow {
     minHeight: 680,
     show: false,
     backgroundColor: '#0A0C10',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    ...(process.platform === 'darwin'
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 14, y: 18 },
+        }
+      : { titleBarStyle: 'default' as const }),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
@@ -64,21 +72,60 @@ function createWindow(bus: DomainEventBus): BrowserWindow {
   return window;
 }
 
-async function bootstrap(): Promise<void> {
-  container = await buildElectronContainer();
-  router = new IPCRouter();
-  registerHandlers(router, container);
-  registerStubHandlers(router);
-
-  const bus = container.resolve(Tokens.EventBus);
-  createWindow(bus);
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(bus);
-  });
+function warmUpDatabase(serviceContainer: ServiceContainer): void {
+  serviceContainer.resolve(Tokens.ProjectService).list();
+  if (isDev) {
+    const dbPath = join(app.getPath('userData'), 'verity.db');
+    console.info(`[verity] database ready at ${dbPath}`);
+  }
 }
 
-void app.whenReady().then(bootstrap);
+async function bootstrap(): Promise<void> {
+  try {
+    container = await buildElectronContainer();
+    warmUpDatabase(container);
+
+    router = new IPCRouter();
+    registerHandlers(router, container);
+    registerStubHandlers(router);
+
+    const bus = container.resolve(Tokens.EventBus);
+    createWindow(bus);
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow(bus);
+    });
+  } catch (error) {
+    console.error('[verity] bootstrap failed:', error);
+    const message =
+      error instanceof VerityError
+        ? error.userMessage
+        : error instanceof Error
+          ? error.message
+          : 'Unexpected startup error.';
+    const detail = error instanceof VerityError ? error.detail : undefined;
+    dialog.showErrorBox(
+      'Verity could not start',
+      detail ? `${message}\n\n${detail}` : message,
+    );
+    app.quit();
+  }
+}
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (window) {
+      if (window.isMinimized()) window.restore();
+      window.focus();
+    }
+  });
+
+  void app.whenReady().then(bootstrap);
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

@@ -1,0 +1,27 @@
+{
+  "name": "@verity/adapter-playwright-java",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Verity Playwright Java adapter — detection, transpile, prerequisites (M3).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@verity/adapter-contract": "workspace:*",
+    "@verity/core": "workspace:*",
+    "@verity/execution-engine": "workspace:*",
+    "@verity/repository-intelligence": "workspace:*",
+    "@verity/semantic-model": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

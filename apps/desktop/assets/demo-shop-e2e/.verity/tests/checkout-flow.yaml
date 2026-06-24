@@ -1,0 +1,41 @@
+version: "1"
+id: checkout-flow
+name: Checkout flow — happy path
+adapter: playwright-java
+promptVersion: demo-v1
+created: "2026-01-01T00:00:00.000Z"
+modified: "2026-01-01T00:00:00.000Z"
+steps:
+  - id: 1
+    intent: Open the shop home page
+    action: navigate
+    context: Demo e-commerce storefront
+    expected: Catalog is visible
+    confidence: 0.94
+    locators:
+      - ref: HomePage.open
+        strategy: role
+        value: Shop
+        invented: false
+  - id: 2
+    intent: Proceed to checkout
+    action: click
+    context: Cart has one item
+    expected: Checkout form loads
+    confidence: 0.91
+    locators:
+      - ref: CheckoutPage.open
+        strategy: role
+        value: Checkout
+        invented: false
+  - id: 3
+    intent: Place order
+    action: click
+    context: Shipping details filled
+    expected: Order confirmation shown
+    confidence: 0.89
+    locators:
+      - ref: CheckoutPage.placeOrder
+        strategy: role
+        value: Place order
+        invented: false

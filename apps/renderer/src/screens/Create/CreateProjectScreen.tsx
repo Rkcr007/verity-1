@@ -1,18 +1,52 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Framework, Project, RepositorySource } from '@verity/core';
-import type { AnalysisProgress } from '@verity/core/ipc';
+import type { AdapterId, Framework, Project, RepositorySource } from '@verity/core';
+import type {
+  AnalysisProgress,
+  EnvironmentSetupResultDto,
+  FrameworkCatalogEntryDto,
+  FrameworkRecommendationDto,
+} from '@verity/core/ipc';
 import { AdapterBadge } from '../../components/AdapterBadge.js';
 import { GitMark } from '../../components/GitMark.js';
 import { IC, Icon } from '../../components/Icon.js';
 import { Pill } from '../../components/Pill.js';
+import type { FolderInspectionDto, MigrationPlanDto, PrerequisiteReportDto } from '@verity/core/ipc';
+import { PrerequisiteCheckList } from '../../components/PrerequisiteCheckList.js';
+import { EnvironmentSetupList, FrameworkCatalogPicker } from '../../components/FrameworkIntelligence.js';
 import { invoke } from '../../ipc/client.js';
 import { useProjects } from '../../store/project-store.js';
-import { useRouter } from '../../store/router-store.js';
+import { useRouter, type WizardMode } from '../../store/router-store.js';
 import { useToast } from '../../store/toast-store.js';
 import { formatFramework } from '../../utils/display.js';
 
-const WIZARD_STEPS = ['Project', 'Repository', 'Framework', 'Analysis', 'Ready'] as const;
-const FUTURE_ADAPTERS = ['Selenium Java', 'Playwright TS', 'Selenium Python', 'Cypress'];
+const WIZARD_META: Record<
+  WizardMode,
+  { readonly title: string; readonly step1Title: string; readonly step1Subtitle: string }
+> = {
+  existing: {
+    title: 'Connect a repository',
+    step1Title: 'Where does the code live?',
+    step1Subtitle:
+      'Verity reads your repo locally. Tests are committed back through Git — never stored on our servers.',
+  },
+  greenfield: {
+    title: 'Start fresh',
+    step1Title: 'Choose stack & folder',
+    step1Subtitle:
+      'Pick an enterprise automation framework. Verity scaffolds the repo, resolves dependencies, and installs browsers.',
+  },
+  migrate: {
+    title: 'Migrate from Selenium',
+    step1Title: 'Where is your Selenium Java repo?',
+    step1Subtitle:
+      'Connect your existing suite. Verity maps tests and guides an incremental move to Playwright Java.',
+  },
+};
+const WIZARD_STEPS_BY_MODE: Record<WizardMode, readonly string[]> = {
+  existing: ['Project', 'Repository', 'Framework', 'Analysis', 'Ready'],
+  greenfield: ['Project', 'Stack & folder', 'Setup', 'Analysis', 'Ready'],
+  migrate: ['Project', 'Repository', 'Migration', 'Analysis', 'Ready'],
+};
 
 type WizardStep = 0 | 1 | 2 | 3 | 4;
 type DetPhase = 0 | 1 | 2 | 'failed';
@@ -37,6 +71,8 @@ const SOURCES: readonly SourceOption[] = [
  */
 export function CreateProjectScreen(): React.ReactElement {
   const go = useRouter((s) => s.go);
+  const wizardMode = useRouter((s) => s.wizardMode);
+  const meta = WIZARD_META[wizardMode];
   const toast = useToast((s) => s.show);
   const createDraft = useProjects((s) => s.createDraft);
   const openProject = useProjects((s) => s.openProject);
@@ -52,6 +88,16 @@ export function CreateProjectScreen(): React.ReactElement {
   const [anaPhase, setAnaPhase] = useState<AnaPhase>(0);
   const [counts, setCounts] = useState<AnalysisProgress>(emptyProgress());
   const [detectedFlows, setDetectedFlows] = useState<readonly string[]>([]);
+  const [prereqs, setPrereqs] = useState<PrerequisiteReportDto | null>(null);
+  const [prereqLoading, setPrereqLoading] = useState(false);
+  const [appDescription, setAppDescription] = useState('');
+  const [folderInspection, setFolderInspection] = useState<FolderInspectionDto | null>(null);
+  const [migrationPlan, setMigrationPlan] = useState<MigrationPlanDto | null>(null);
+  const [frameworkCatalog, setFrameworkCatalog] = useState<readonly FrameworkCatalogEntryDto[]>([]);
+  const [frameworkRec, setFrameworkRec] = useState<FrameworkRecommendationDto | null>(null);
+  const [selectedAdapterId, setSelectedAdapterId] = useState<AdapterId>('playwright-java');
+  const [envSetup, setEnvSetup] = useState<EnvironmentSetupResultDto | null>(null);
+  const [toolchainBusy, setToolchainBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -61,10 +107,81 @@ export function CreateProjectScreen(): React.ReactElement {
     };
   }, []);
 
+  const loadFrameworkIntelligence = useCallback(async (): Promise<void> => {
+    try {
+      const mode =
+        wizardMode === 'migrate' ? 'migrate' : wizardMode === 'greenfield' ? 'greenfield' : 'existing';
+      const desc = appDescription.trim();
+      const path = localPath.trim();
+      const [{ entries }, rec] = await Promise.all([
+        invoke('intelligence:get-framework-catalog', undefined),
+        invoke('intelligence:recommend-framework', {
+          mode,
+          ...(desc ? { appDescription: desc } : {}),
+          ...(path ? { repoPath: path } : {}),
+        }),
+      ]);
+      setFrameworkCatalog(entries);
+      setFrameworkRec(rec);
+      if (wizardMode === 'greenfield') {
+        setSelectedAdapterId((current) => {
+          const stillValid = entries.find((e) => e.adapterId === current)?.scaffoldSupported;
+          return stillValid ? current : rec.recommended.adapterId;
+        });
+      }
+    } catch {
+      // Catalog is optional — wizard still works with defaults.
+    }
+  }, [wizardMode, appDescription, localPath]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadFrameworkIntelligence();
+    }, appDescription.trim() || localPath.trim() ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [wizardMode, appDescription, localPath, loadFrameworkIntelligence]);
+
+  const inspectLocalPath = useCallback(async (path: string): Promise<void> => {
+    if (!path.trim()) {
+      setFolderInspection(null);
+      return;
+    }
+    try {
+      const inspection = await invoke('repository:inspect-folder', { path });
+      setFolderInspection(inspection);
+    } catch {
+      setFolderInspection(null);
+    }
+  }, []);
+
   const pickFolder = useCallback(async (): Promise<void> => {
     const result = await invoke('repository:pick-folder', undefined);
-    if ('path' in result) setLocalPath(result.path);
-  }, []);
+    if ('path' in result) {
+      setLocalPath(result.path);
+      await inspectLocalPath(result.path);
+    }
+  }, [inspectLocalPath]);
+
+  const createNewFolder = useCallback(async (): Promise<void> => {
+    const folderName = name.trim();
+    if (!folderName) {
+      toast('Name your workspace first — we use it as the new folder name', 'err');
+      return;
+    }
+    const parent = await invoke('repository:pick-parent-folder', undefined);
+    if (!('path' in parent)) return;
+    try {
+      const created = await invoke('repository:create-folder', {
+        parentPath: parent.path,
+        folderName,
+      });
+      setLocalPath(created.path);
+      await inspectLocalPath(created.path);
+      toast(`Created ${folderName} at ${parent.path}`);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Could not create folder', 'err');
+    }
+  }, [name, toast, inspectLocalPath]);
 
   const connectLocal = useCallback(async (): Promise<boolean> => {
     if (!project) return false;
@@ -85,6 +202,66 @@ export function CreateProjectScreen(): React.ReactElement {
     }
   }, [project, localPath, toast]);
 
+  const loadPrerequisites = useCallback(async (projectId: Project['id']): Promise<void> => {
+    setPrereqLoading(true);
+    try {
+      const report = await invoke('adapter:check-prerequisites', { projectId });
+      setPrereqs(report);
+    } catch (error) {
+      setPrereqs(null);
+      toast(
+        error instanceof Error ? error.message : 'Could not check framework prerequisites',
+        'err',
+      );
+    } finally {
+      setPrereqLoading(false);
+    }
+  }, [toast]);
+
+  const installToolchain = useCallback(async (): Promise<void> => {
+    const adapterId = framework?.adapterId ?? selectedAdapterId;
+    setToolchainBusy(true);
+    try {
+      const result = await invoke('toolchain:install-for-adapter', { adapterId });
+      setEnvSetup(result.setup);
+      toast(
+        result.setup.ready
+          ? 'Toolchain installed — prerequisites should pass after restart'
+          : 'Toolchain install completed with items to review',
+        result.setup.ready ? 'info' : 'err',
+      );
+      if (project) {
+        void loadPrerequisites(project.id);
+      }
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Toolchain install failed', 'err');
+    } finally {
+      setToolchainBusy(false);
+    }
+  }, [framework, selectedAdapterId, project, toast, loadPrerequisites]);
+
+  const loadMigrationPlan = useCallback(async (projectId: Project['id']): Promise<void> => {
+    setDetPhase(1);
+    setDetError(null);
+    try {
+      const plan = await invoke('intelligence:get-migration-plan', { projectId });
+      setMigrationPlan(plan);
+      setFramework({
+        adapterId: 'selenium-java',
+        version: 'detected',
+        buildTool: 'maven',
+        testFramework: 'JUnit',
+        pattern: 'page-object-model',
+      });
+      setDetPhase(2);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Migration planning failed';
+      setDetError(message);
+      setDetPhase('failed');
+      toast(message, 'err');
+    }
+  }, [toast]);
+
   const runDetection = useCallback(async (): Promise<void> => {
     if (!project) return;
     setDetPhase(1);
@@ -98,6 +275,7 @@ export function CreateProjectScreen(): React.ReactElement {
       setFramework(fw);
       setProject((p) => (p ? { ...p, framework: fw } : p));
       setDetPhase(2);
+      void loadPrerequisites(project.id);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Framework detection failed';
@@ -105,7 +283,7 @@ export function CreateProjectScreen(): React.ReactElement {
       setDetPhase('failed');
       toast(message, 'err');
     }
-  }, [project, toast]);
+  }, [project, toast, loadPrerequisites]);
 
   const runAnalysis = useCallback(async (): Promise<void> => {
     if (!project) return;
@@ -179,12 +357,52 @@ export function CreateProjectScreen(): React.ReactElement {
         toast('Remote OAuth connection ships soon — use Local Folder for now', 'info');
         return;
       }
+      if (!project) return;
+
+      if (wizardMode === 'greenfield') {
+        setBusy(true);
+        try {
+          const scaffoldReq: {
+            projectId: Project['id'];
+            localPath: string;
+            adapterId: AdapterId;
+            appDescription?: string;
+          } = { projectId: project.id, localPath, adapterId: selectedAdapterId };
+          const desc = appDescription.trim();
+          if (desc) scaffoldReq.appDescription = desc;
+          const result = await invoke('project:scaffold-greenfield', scaffoldReq);
+          setProject(result.project);
+          setFramework(result.project.framework);
+          setEnvSetup(result.setup);
+          setDetPhase(2);
+          setStep(2);
+          const stackName =
+            frameworkCatalog.find((e) => e.adapterId === selectedAdapterId)?.displayName ??
+            'Playwright Java';
+          toast(
+            result.setup.ready
+              ? `${stackName} ready — ${result.filesCreated} files, dependencies installed`
+              : `Scaffolded ${result.filesCreated} files — review setup steps`,
+          );
+          void loadPrerequisites(result.project.id);
+        } catch (error) {
+          toast(error instanceof Error ? error.message : 'Could not scaffold project', 'err');
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
+
       setBusy(true);
       const ok = await connectLocal();
       setBusy(false);
       if (!ok) return;
       setStep(2);
-      void runDetection();
+      if (wizardMode === 'migrate') {
+        void loadMigrationPlan(project.id);
+      } else {
+        void runDetection();
+      }
       return;
     }
 
@@ -209,16 +427,31 @@ export function CreateProjectScreen(): React.ReactElement {
     (step === 0
       ? name.trim().length > 0
       : step === 1
-        ? source === 'local' && localPath.trim().length > 0
+        ? source === 'local' &&
+          localPath.trim().length > 0 &&
+          (wizardMode === 'migrate'
+            ? folderInspection === null || folderInspection.entryKind === 'selenium-java'
+            : wizardMode === 'greenfield'
+              ? folderInspection === null || folderInspection.isEmpty
+              : true) &&
+          (wizardMode !== 'greenfield' ||
+            frameworkCatalog.find((e) => e.adapterId === selectedAdapterId)?.scaffoldSupported !==
+              false)
         : step === 2
-          ? detPhase === 2
+          ? wizardMode === 'migrate'
+            ? detPhase === 2 && migrationPlan !== null
+            : detPhase === 2
           : step === 3
             ? anaPhase === 2
             : true);
 
   const nextLabel =
     step === 1
-      ? 'Detect framework'
+      ? wizardMode === 'greenfield'
+        ? 'Scaffold project'
+        : wizardMode === 'migrate'
+          ? 'Connect & plan migration'
+          : 'Detect framework'
       : step === 2
         ? 'Analyze repository'
         : step === 3
@@ -263,7 +496,7 @@ export function CreateProjectScreen(): React.ReactElement {
         >
           <Icon d={IC.shield} size={14} stroke="white" strokeWidth={2} />
         </div>
-        <span style={{ fontSize: 13.5, fontWeight: 700 }}>Connect a repository</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700 }}>{meta.title}</span>
         <div style={{ flex: 1 }} />
         <button
           type="button"
@@ -284,7 +517,7 @@ export function CreateProjectScreen(): React.ReactElement {
         </button>
       </header>
 
-      <WizardProgressBar step={step} />
+      <WizardProgressBar step={step} wizardMode={wizardMode} />
 
       <div
         style={{
@@ -312,59 +545,124 @@ export function CreateProjectScreen(): React.ReactElement {
           )}
 
           {step === 1 && (
-            <StepPanel
-              title="Where does the code live?"
-              subtitle="Verity reads your repo locally. Tests are committed back through Git — never stored on our servers."
-            >
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
-                {SOURCES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    disabled={!s.enabled}
-                    onClick={() => s.enabled && setSource(s.id)}
+            <StepPanel title={meta.step1Title} subtitle={meta.step1Subtitle}>
+              {frameworkRec && wizardMode !== 'greenfield' && step === 1 ? (
+                <div
+                  style={{
+                    marginBottom: 16,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    background: 'var(--ai-dim)',
+                    border: '1px solid rgba(167,139,250,0.25)',
+                    fontSize: 12.5,
+                    lineHeight: '18px',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: 'var(--ai)', marginBottom: 6 }}>
+                    Intelligence: {frameworkRec.recommended.displayName}
+                    {frameworkRec.source === 'llm' ? ' (AI)' : ''}
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--t1)' }}>
+                    {frameworkRec.reasons.slice(0, 3).map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {wizardMode === 'greenfield' ? (
+                <>
+                  <label
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 11,
-                      padding: '13px 14px',
-                      background: source === s.id ? 'var(--acc-bg)' : 'var(--bg2)',
-                      border: `1.5px solid ${source === s.id ? 'var(--acc)' : 'var(--b1)'}`,
-                      borderRadius: 10,
-                      textAlign: 'left',
-                      opacity: s.enabled ? 1 : 0.55,
-                      cursor: s.enabled ? 'pointer' : 'not-allowed',
+                      display: 'block',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'var(--t1)',
+                      marginBottom: 8,
                     }}
                   >
-                    <div
+                    What are you testing? (helps intelligence recommend a stack)
+                  </label>
+                  <textarea
+                    value={appDescription}
+                    onChange={(e) => setAppDescription(e.target.value)}
+                    placeholder="e.g. Java Spring B2B checkout at https://shop.example.com"
+                    rows={2}
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: 56, marginBottom: 16 }}
+                  />
+                  {frameworkCatalog.length > 0 ? (
+                    <FrameworkCatalogPicker
+                      catalog={frameworkCatalog}
+                      recommendation={frameworkRec}
+                      selectedAdapterId={selectedAdapterId}
+                      onSelect={setSelectedAdapterId}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {wizardMode !== 'greenfield' ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 10,
+                    marginBottom: 18,
+                  }}
+                >
+                  {SOURCES.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      disabled={!s.enabled}
+                      onClick={() => s.enabled && setSource(s.id)}
                       style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 8,
-                        background: 'var(--bg3)',
-                        border: '1px solid var(--b1)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
+                        gap: 11,
+                        padding: '13px 14px',
+                        background: source === s.id ? 'var(--acc-bg)' : 'var(--bg2)',
+                        border: `1.5px solid ${source === s.id ? 'var(--acc)' : 'var(--b1)'}`,
+                        borderRadius: 10,
+                        textAlign: 'left',
+                        opacity: s.enabled ? 1 : 0.55,
+                        cursor: s.enabled ? 'pointer' : 'not-allowed',
                       }}
                     >
-                      {s.id === 'local' ? (
-                        <Icon d={IC.folder} size={16} stroke="var(--t1)" />
-                      ) : (
-                        <GitMark source={s.id} size={16} />
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600 }}>{s.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--t2)' }}>{s.sub}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                      <div
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 8,
+                          background: 'var(--bg3)',
+                          border: '1px solid var(--b1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {s.id === 'local' ? (
+                          <Icon d={IC.folder} size={16} stroke="var(--t1)" />
+                        ) : (
+                          <GitMark source={s.id} size={16} />
+                        )}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{s.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--t2)' }}>{s.sub}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--t1)', marginBottom: 8 }}>
-                Repository folder
+                {wizardMode === 'greenfield' ? 'Project location' : 'Repository folder'}
               </label>
+              {wizardMode === 'greenfield' ? (
+                <p style={{ fontSize: 11.5, color: 'var(--t2)', marginBottom: 10, lineHeight: '16px' }}>
+                  Browse an empty folder, or create a new one — we&apos;ll scaffold inside it using your workspace
+                  name{ name.trim() ? ` (“${name.trim()}”)` : ''}.
+                </p>
+              ) : null}
               <div style={{ display: 'flex', gap: 8 }}>
                 <div
                   style={{
@@ -382,8 +680,15 @@ export function CreateProjectScreen(): React.ReactElement {
                   <GitMark source={source} size={15} />
                   <input
                     value={localPath}
-                    onChange={(e) => setLocalPath(e.target.value)}
-                    placeholder="/path/to/your/test-repo"
+                    onChange={(e) => {
+                      setLocalPath(e.target.value);
+                      void inspectLocalPath(e.target.value);
+                    }}
+                    placeholder={
+                      wizardMode === 'greenfield'
+                        ? '/path/to/new-project-folder'
+                        : '/path/to/your/test-repo'
+                    }
                     style={{
                       flex: 1,
                       background: 'none',
@@ -407,29 +712,72 @@ export function CreateProjectScreen(): React.ReactElement {
                     color: 'var(--t0)',
                     fontSize: 12.5,
                     fontWeight: 600,
+                    flexShrink: 0,
                   }}
                 >
                   Browse…
                 </button>
+                {wizardMode === 'greenfield' ? (
+                  <button
+                    type="button"
+                    onClick={() => void createNewFolder()}
+                    style={{
+                      height: 44,
+                      padding: '0 14px',
+                      border: '1px solid var(--acc)',
+                      borderRadius: 9,
+                      background: 'var(--acc-bg)',
+                      color: 'var(--acc)',
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    New folder…
+                  </button>
+                ) : null}
               </div>
+              {folderInspection ? (
+                <FolderInspectionBanner inspection={folderInspection} wizardMode={wizardMode} />
+              ) : null}
             </StepPanel>
           )}
 
           {step === 2 && (
             <div style={{ textAlign: 'center', paddingTop: 10, animation: 'slideU 0.3s ease' }}>
               <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>
-                {detPhase === 2
-                  ? 'Framework detected'
-                  : detPhase === 'failed'
-                    ? 'Detection failed'
-                    : 'Detecting framework'}
+                {wizardMode === 'migrate' && detPhase === 2
+                  ? 'Migration plan ready'
+                  : wizardMode === 'greenfield' && detPhase === 2
+                    ? 'Environment ready'
+                    : detPhase === 2
+                      ? 'Framework detected'
+                      : detPhase === 'failed'
+                        ? wizardMode === 'migrate'
+                          ? 'Migration planning failed'
+                          : 'Detection failed'
+                        : wizardMode === 'migrate'
+                          ? 'Planning migration'
+                          : wizardMode === 'greenfield'
+                            ? 'Scaffolding project'
+                            : 'Detecting framework'}
               </div>
               <p style={{ fontSize: 13.5, color: 'var(--t1)', marginBottom: 30 }}>
-                {detPhase === 2
-                  ? 'Verity will use this as the active execution adapter.'
-                  : detPhase === 'failed'
-                    ? 'Point the wizard at a Playwright Java (Maven/Gradle) repository, or pick another folder.'
-                    : 'Reading build files, dependencies and test structure…'}
+                {wizardMode === 'migrate' && detPhase === 2
+                  ? 'Incremental path from Selenium Java to Playwright Java — semantic tests first.'
+                  : wizardMode === 'greenfield' && detPhase === 2
+                    ? 'Repo scaffolded with latest dependencies. Verity indexed your starter page objects.'
+                    : detPhase === 2
+                      ? 'Verity will use this as the active execution adapter.'
+                      : detPhase === 'failed'
+                        ? wizardMode === 'greenfield'
+                          ? 'Use an empty folder or pick a different path.'
+                          : 'Point the wizard at a supported repository, or pick another folder.'
+                        : wizardMode === 'migrate'
+                          ? 'Reading Selenium tests and page objects…'
+                          : wizardMode === 'greenfield'
+                            ? 'Creating Maven layout, page objects, and semantic tests…'
+                            : 'Reading build files, dependencies and test structure…'}
               </p>
               <DetectionIcon done={detPhase === 2} failed={detPhase === 'failed'} />
               {detPhase === 'failed' && detError && (
@@ -450,10 +798,47 @@ export function CreateProjectScreen(): React.ReactElement {
                   {detError}
                 </div>
               )}
-              {framework && detPhase === 2 && (
+              {framework && detPhase === 2 && wizardMode !== 'migrate' && (
                 <FrameworkRows framework={framework} fwDisplay={fwDisplay} />
               )}
-              {detPhase === 2 && (
+              {migrationPlan && detPhase === 2 && wizardMode === 'migrate' && (
+                <MigrationPlanPanel plan={migrationPlan} />
+              )}
+              {framework && detPhase === 2 && wizardMode === 'migrate' && (
+                <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}>
+                  <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>Current stack</div>
+                  <AdapterBadge framework="Selenium Java" version="detected" />
+                </div>
+              )}
+              {envSetup && wizardMode === 'greenfield' && detPhase === 2 ? (
+                <EnvironmentSetupList setup={envSetup} />
+              ) : null}
+              {detPhase === 2 && wizardMode !== 'migrate' && (
+                <div style={{ maxWidth: 420, margin: '20px auto 0', textAlign: 'left' }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 0.5,
+                      textTransform: 'uppercase',
+                      color: 'var(--t2)',
+                      marginBottom: 8,
+                    }}
+                  >
+                    Environment prerequisites
+                  </div>
+                  {prereqLoading && !prereqs ? (
+                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>Checking JDK, Maven, browsers…</div>
+                  ) : prereqs ? (
+                    <PrerequisiteCheckList
+                      checks={prereqs.checks}
+                      onInstallToolchain={() => void installToolchain()}
+                      installBusy={toolchainBusy}
+                    />
+                  ) : null}
+                </div>
+              )}
+              {detPhase === 2 && frameworkCatalog.length > 0 && (
                 <div
                   style={{
                     marginTop: 20,
@@ -464,16 +849,37 @@ export function CreateProjectScreen(): React.ReactElement {
                   }}
                 >
                   <span style={{ fontSize: 11, color: 'var(--t2)', width: '100%', marginBottom: 2 }}>
-                    Framework-neutral — future adapters:
+                    Enterprise catalog — more adapters shipping:
                   </span>
-                  {FUTURE_ADAPTERS.map((a) => (
-                    <Pill key={a} color="var(--t2)">
-                      {a}
-                    </Pill>
-                  ))}
+                  {frameworkCatalog
+                    .filter((e) => !e.scaffoldSupported)
+                    .map((a) => (
+                      <Pill key={a.adapterId} color="var(--t2)">
+                        {a.displayName}
+                      </Pill>
+                    ))}
                 </div>
               )}
-              {detPhase === 'failed' && (
+              {detPhase === 'failed' && wizardMode === 'migrate' && (
+                <button
+                  type="button"
+                  onClick={() => project && void loadMigrationPlan(project.id)}
+                  style={{
+                    marginTop: 8,
+                    height: 40,
+                    padding: '0 16px',
+                    border: '1px solid var(--b1)',
+                    borderRadius: 9,
+                    background: 'var(--bg2)',
+                    color: 'var(--t0)',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  Retry migration plan
+                </button>
+              )}
+              {detPhase === 'failed' && wizardMode !== 'migrate' && (
                 <button
                   type="button"
                   onClick={() => void runDetection()}
@@ -573,7 +979,14 @@ function emptyProgress(): AnalysisProgress {
   return { pages: 0, tests: 0, pageObjects: 0, utils: 0, flows: 0, understandingScore: 0 };
 }
 
-function WizardProgressBar({ step }: { step: WizardStep }): React.ReactElement {
+function WizardProgressBar({
+  step,
+  wizardMode,
+}: {
+  step: WizardStep;
+  wizardMode: WizardMode;
+}): React.ReactElement {
+  const labels = WIZARD_STEPS_BY_MODE[wizardMode];
   return (
     <div
       style={{
@@ -586,7 +999,7 @@ function WizardProgressBar({ step }: { step: WizardStep }): React.ReactElement {
         flexShrink: 0,
       }}
     >
-      {WIZARD_STEPS.map((label, i) => (
+      {labels.map((label, i) => (
         <div key={label} style={{ flex: 1 }}>
           <div
             style={{
@@ -990,6 +1403,74 @@ function ReadyStep({
           <AdapterBadge framework={fw.name} version={fw.version} />
         </div>
       )}
+    </div>
+  );
+}
+
+function FolderInspectionBanner({
+  inspection,
+  wizardMode,
+}: {
+  inspection: FolderInspectionDto;
+  wizardMode: WizardMode;
+}): React.ReactElement {
+  const warn =
+    (wizardMode === 'greenfield' && !inspection.isEmpty) ||
+    (wizardMode === 'migrate' && inspection.entryKind !== 'selenium-java') ||
+    (wizardMode === 'existing' && inspection.isEmpty);
+
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        padding: '12px 14px',
+        borderRadius: 9,
+        background: warn ? 'rgba(239,91,91,0.08)' : 'var(--acc-bg)',
+        border: `1px solid ${warn ? 'rgba(239,91,91,0.35)' : 'rgba(91,140,239,0.25)'}`,
+        fontSize: 12.5,
+        lineHeight: 1.5,
+        color: 'var(--t1)',
+      }}
+    >
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>{inspection.headline}</div>
+      <div style={{ color: 'var(--t2)' }}>{inspection.detail}</div>
+      {warn ? (
+        <div style={{ marginTop: 8, color: 'var(--err)', fontWeight: 600 }}>
+          {wizardMode === 'greenfield'
+            ? 'Choose an empty folder to scaffold.'
+            : wizardMode === 'migrate'
+              ? 'This folder does not look like Selenium Java.'
+              : 'This folder is empty — try Start fresh instead.'}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MigrationPlanPanel({ plan }: { plan: MigrationPlanDto }): React.ReactElement {
+  return (
+    <div
+      style={{
+        maxWidth: 440,
+        margin: '0 auto',
+        textAlign: 'left',
+        padding: '14px 16px',
+        background: 'var(--bg2)',
+        border: '1px solid var(--b1)',
+        borderRadius: 11,
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: 'var(--t2)', marginBottom: 10 }}>
+        {plan.sourceAdapter} → {plan.targetAdapter} · {plan.estimatedEffort} effort
+      </div>
+      {plan.steps.map((step) => (
+        <div key={step.phase} style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t0)' }}>
+            {step.phase}. {step.title}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4, lineHeight: 1.45 }}>{step.detail}</div>
+        </div>
+      ))}
     </div>
   );
 }

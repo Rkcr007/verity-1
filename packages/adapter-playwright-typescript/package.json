@@ -1,0 +1,26 @@
+{
+  "name": "@verity/adapter-playwright-typescript",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Verity Playwright TypeScript adapter — detection, scaffold, prerequisites (M1.7).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@verity/adapter-contract": "workspace:*",
+    "@verity/core": "workspace:*",
+    "@verity/repository-intelligence": "workspace:*",
+    "@verity/semantic-model": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,19 @@
+version: "1"
+id: smoke-login
+name: Smoke — login page loads
+adapter: playwright-java
+promptVersion: demo-v1
+created: "2026-01-01T00:00:00.000Z"
+modified: "2026-01-01T00:00:00.000Z"
+steps:
+  - id: 1
+    intent: Open the login page
+    action: navigate
+    context: Demo shop authentication
+    expected: Login form is visible
+    confidence: 0.93
+    locators:
+      - ref: LoginPage.open
+        strategy: label
+        value: Email
+        invented: false

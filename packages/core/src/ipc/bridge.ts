@@ -9,6 +9,9 @@ import type { EventChannel, EventPayload } from './events.js';
  * IPC client is built on top of this; nothing else crosses the boundary.
  */
 export interface VerityBridge {
+  /** Host OS — used for title-bar inset layout on macOS. */
+  readonly platform: string;
+
   invoke<C extends CommandChannel>(
     channel: C,
     request: CommandRequest<C>,

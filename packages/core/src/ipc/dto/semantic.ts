@@ -117,3 +117,8 @@ export interface SemanticDiscardProposalRequest {
   readonly projectId: WorkspaceId;
   readonly proposalId: ProposalId;
 }
+
+export interface SemanticGetProposalRequest {
+  readonly projectId: WorkspaceId;
+  readonly proposalId: ProposalId;
+}
