@@ -10,3 +10,6 @@ export type { EventMap, EventChannel, EventPayload } from './events.js';
 export { EVENT_CHANNELS } from './events.js';
 
 export type { VerityBridge } from './bridge.js';
+
+export type * from './dto/index.js';
+export type * from './event-payloads.js';

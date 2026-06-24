@@ -3,3 +3,7 @@ export type { VerityDatabase } from './database.js';
 export * as schema from './schema.js';
 export { ProjectRepository } from './repositories/project-repository.js';
 export type { IProjectRepository } from './repositories/project-repository.js';
+export { IndexCacheRepository } from './repositories/index-cache-repository.js';
+export type { IIndexCacheRepository, IndexCacheRecord } from './repositories/index-cache-repository.js';
+export type { IndexCachePayload, IndexScanStats } from './types/index-cache-payload.js';
+export { emptyIndexCachePayload } from './types/index-cache-payload.js';

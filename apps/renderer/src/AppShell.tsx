@@ -3,8 +3,12 @@ import { ActivityRail } from './components/ActivityRail.js';
 import { useRouter } from './store/router-store.js';
 import { useProjects } from './store/project-store.js';
 import { on } from './ipc/client.js';
+import { ToastHost } from './components/ToastHost.js';
 import { WelcomeScreen } from './screens/Welcome/WelcomeScreen.js';
 import { WorkspaceScreen } from './screens/Workspace/WorkspaceScreen.js';
+import { ProjectsScreen } from './screens/Projects/ProjectsScreen.js';
+import { CreateProjectScreen } from './screens/Create/CreateProjectScreen.js';
+import { MemoryScreen } from './screens/Memory/MemoryScreen.js';
 import { PlaceholderScreen } from './screens/PlaceholderScreen.js';
 
 /**
@@ -36,13 +40,14 @@ export function AppShell() {
       {showChrome && <ActivityRail />}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         {route === 'welcome' && <WelcomeScreen />}
-        {route === 'create' && <PlaceholderScreen title="Connect a repository" epic="EPIC 1 (M1)" />}
+        {route === 'create' && <CreateProjectScreen />}
         {route === 'workspace' && <WorkspaceScreen project={active} />}
-        {route === 'projects' && <PlaceholderScreen title="Projects" epic="EPIC 1 (M1)" />}
+        {route === 'projects' && <ProjectsScreen />}
         {route === 'executions' && <PlaceholderScreen title="Executions" epic="EPIC 5 (M5)" />}
-        {route === 'memory' && <PlaceholderScreen title="AI Memory" epic="EPIC 1 (M1)" />}
+        {route === 'memory' && <MemoryScreen project={active} />}
         {route === 'settings' && <PlaceholderScreen title="Settings" epic="EPIC 3 (M3)" />}
       </div>
+      <ToastHost />
     </div>
   );
 }

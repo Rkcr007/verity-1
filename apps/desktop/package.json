@@ -10,16 +10,20 @@
     "lint": "eslint src",
     "dev": "node ./scripts/dev.mjs",
     "start": "electron .",
+    "test": "node --import tsx --test src/**/*.test.ts",
     "clean": "rimraf out .turbo"
   },
   "dependencies": {
     "@verity/core": "workspace:*",
     "@verity/local-persistence": "workspace:*",
+    "@verity/repository-intelligence": "workspace:*",
+    "@verity/semantic-model": "workspace:*",
     "better-sqlite3": "^11.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
     "electron": "^31.3.1",
+    "tsx": "^4.19.0",
     "tsup": "^8.2.4",
     "typescript": "^5.5.4"
   }

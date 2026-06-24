@@ -1,0 +1,25 @@
+{
+  "name": "@verity/semantic-model",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Verity semantic test model — YAML v1 schema, validation, read/write (AD-001 source of truth).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@verity/core": "workspace:*",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

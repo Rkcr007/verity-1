@@ -32,10 +32,11 @@ export class ServiceContainer {
     if (this.registrations.has(token)) {
       throw new Error(`Service already registered: ${token.description ?? 'unknown'}`);
     }
-    this.registrations.set(token, {
-      factory: factory as Factory<unknown>,
-      dispose: dispose as Registration<unknown>['dispose'],
-    });
+    const registration: Registration<unknown> = { factory: factory as Factory<unknown> };
+    if (dispose) {
+      registration.dispose = dispose as (instance: unknown) => void | Promise<void>;
+    }
+    this.registrations.set(token, registration);
     this.order.push(token);
     return this;
   }

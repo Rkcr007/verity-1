@@ -101,3 +101,16 @@ export class PersistenceError extends VerityError {
     this.name = 'PersistenceError';
   }
 }
+
+/** Thrown when an IPC channel is catalogued but not yet implemented for the current milestone. */
+export class NotImplementedError extends VerityError {
+  constructor(feature: string) {
+    super({
+      code: 'IPC_HANDLER_FAILED',
+      userMessage: `${feature} is not available yet.`,
+      recoverable: true,
+      detail: 'Handler ships in a later milestone.',
+    });
+    this.name = 'NotImplementedError';
+  }
+}

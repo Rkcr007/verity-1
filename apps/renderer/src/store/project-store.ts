@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project } from '@verity/core';
+import type { CreateProjectInput, Project } from '@verity/core';
 import { invoke } from '../ipc/client.js';
 
 /**
@@ -13,7 +13,9 @@ interface ProjectState {
   loading: boolean;
   error: string | null;
   loadProjects: () => Promise<void>;
-  openProject: (id: Project['id']) => Promise<void>;
+  createDraft: (name: string) => Promise<Project>;
+  createProject: (input: CreateProjectInput) => Promise<Project>;
+  openProject: (id: Project['id']) => Promise<Project>;
   setActive: (project: Project) => void;
 }
 
@@ -33,13 +35,30 @@ export const useProjects = create<ProjectState>((set) => ({
     }
   },
 
+  createDraft: async (name) => {
+    const project = await invoke('project:create-draft', { name });
+    set((state) => ({
+      projects: [project, ...state.projects],
+      active: project,
+      error: null,
+    }));
+    return project;
+  },
+
+  createProject: async (input) => {
+    const project = await invoke('project:create', input);
+    set((state) => ({
+      projects: [project, ...state.projects],
+      active: project,
+      error: null,
+    }));
+    return project;
+  },
+
   openProject: async (id) => {
-    try {
-      const project = await invoke('project:open', { projectId: id });
-      set({ active: project });
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to open project' });
-    }
+    const project = await invoke('project:open', { projectId: id });
+    set({ active: project, error: null });
+    return project;
   },
 
   setActive: (project) => set({ active: project }),

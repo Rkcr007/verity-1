@@ -19,6 +19,7 @@ export default defineConfig({
   outDir: 'out',
   outExtension: () => ({ js: '.cjs' }),
   external: ['electron', 'better-sqlite3'],
+  noExternal: [/@verity\/.*/],
   sourcemap: true,
   clean: true,
   splitting: false,

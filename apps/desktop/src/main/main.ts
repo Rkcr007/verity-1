@@ -1,10 +1,11 @@
 import { app, BrowserWindow, shell } from 'electron';
 import { join } from 'node:path';
 import type { ServiceContainer } from './service-container.js';
-import { buildContainer } from './container.js';
+import { buildElectronContainer } from './container.js';
 import { IPCRouter } from './ipc-router.js';
 import { IPCForwarder, type DomainEventBus } from './event-bus.js';
 import { registerHandlers } from './register-handlers.js';
+import { registerStubHandlers } from './register-stub-handlers.js';
 import { Tokens } from './tokens.js';
 
 /**
@@ -52,7 +53,10 @@ function createWindow(bus: DomainEventBus): BrowserWindow {
 
   if (isDev) {
     void window.loadURL(DEV_SERVER_URL);
-    window.webContents.openDevTools({ mode: 'detach' });
+    // DevTools are opt-in: set VERITY_OPEN_DEVTOOLS=1 when launching.
+    if (process.env.VERITY_OPEN_DEVTOOLS === '1') {
+      window.webContents.openDevTools({ mode: 'detach' });
+    }
   } else {
     void window.loadFile(join(__dirname, '../renderer/index.html'));
   }
@@ -61,9 +65,10 @@ function createWindow(bus: DomainEventBus): BrowserWindow {
 }
 
 async function bootstrap(): Promise<void> {
-  container = buildContainer();
+  container = await buildElectronContainer();
   router = new IPCRouter();
   registerHandlers(router, container);
+  registerStubHandlers(router);
 
   const bus = container.resolve(Tokens.EventBus);
   createWindow(bus);

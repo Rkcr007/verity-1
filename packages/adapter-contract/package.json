@@ -1,0 +1,22 @@
+{
+  "name": "@verity/adapter-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Verity adapter contract — TestAdapter ACL enforcing framework neutrality (AD-002).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@verity/core": "workspace:*",
+    "@verity/semantic-model": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
