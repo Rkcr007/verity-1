@@ -9,6 +9,7 @@ import type {
   AdapterInfoDto,
   AiGenerateRequest,
   AiGenerateResponse,
+  AiCapabilitiesResponse,
   AnalysisJob,
   BusinessFlowDto,
   ConnectLocalRepositoryRequest,
@@ -68,6 +69,16 @@ import type {
   SemanticWriteRequest,
   StartAnalysisRequest,
   StartAnalysisResponse,
+  GitStatusDto,
+  GitGetDiffRequest,
+  GitGetDiffResponse,
+  GitCommitRequest,
+  GitCommitResponse,
+  GitPushRequest,
+  GitPushResponse,
+  GitListBranchesResponse,
+  GitCheckoutBranchRequest,
+  AppUpdateStatusDto,
 } from './dto/index.js';
 
 /**
@@ -81,12 +92,29 @@ import type {
  * - `intelligence:*` — M1 repository intelligence
  * - `semantic:*` — M2 semantic model + M4 proposal apply
  * - `ai:*` — M4 AI Test Studio
+ * - `git:*` — M6 Git Integration
  */
 export interface CommandMap {
   // ---- App ----
   'app:ping': {
     request: void;
     response: { pong: true; version: string };
+  };
+  'app:get-update-status': {
+    request: void;
+    response: AppUpdateStatusDto;
+  };
+  'app:check-for-updates': {
+    request: void;
+    response: AppUpdateStatusDto;
+  };
+  'app:download-update': {
+    request: void;
+    response: AppUpdateStatusDto;
+  };
+  'app:install-update': {
+    request: void;
+    response: void;
   };
 
   // ---- Project ----
@@ -287,6 +315,10 @@ export interface CommandMap {
     request: AiGenerateRequest;
     response: AiGenerateResponse;
   };
+  'ai:get-capabilities': {
+    request: void;
+    response: AiCapabilitiesResponse;
+  };
 
   // ---- Execution (M5) ----
   'execution:run': {
@@ -315,6 +347,32 @@ export interface CommandMap {
     request: AdapterCheckPrerequisitesRequest;
     response: PrerequisiteReportDto;
   };
+
+  // ---- Git integration (M6) ----
+  'git:get-status': {
+    request: ProjectScopedRequest;
+    response: GitStatusDto;
+  };
+  'git:get-diff': {
+    request: GitGetDiffRequest;
+    response: GitGetDiffResponse;
+  };
+  'git:commit': {
+    request: GitCommitRequest;
+    response: GitCommitResponse;
+  };
+  'git:push': {
+    request: GitPushRequest;
+    response: GitPushResponse;
+  };
+  'git:list-branches': {
+    request: ProjectScopedRequest;
+    response: GitListBranchesResponse;
+  };
+  'git:checkout-branch': {
+    request: GitCheckoutBranchRequest;
+    response: GitStatusDto;
+  };
 }
 
 export type CommandChannel = keyof CommandMap;
@@ -323,6 +381,10 @@ export type CommandResponse<C extends CommandChannel> = CommandMap[C]['response'
 
 export const COMMAND_CHANNELS = [
   'app:ping',
+  'app:get-update-status',
+  'app:check-for-updates',
+  'app:download-update',
+  'app:install-update',
   'project:create',
   'project:create-draft',
   'project:list',
@@ -366,10 +428,17 @@ export const COMMAND_CHANNELS = [
   'semantic:discard-proposal',
   'semantic:get-proposal',
   'ai:generate',
+  'ai:get-capabilities',
   'execution:run',
   'execution:cancel',
   'execution:get',
   'execution:list',
   'adapter:list',
   'adapter:check-prerequisites',
+  'git:get-status',
+  'git:get-diff',
+  'git:commit',
+  'git:push',
+  'git:list-branches',
+  'git:checkout-branch',
 ] as const satisfies readonly CommandChannel[];

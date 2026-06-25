@@ -5,7 +5,7 @@
 
 **Product:** AI-Native Test Engineering Workspace (Electron desktop)  
 **MVP target:** End-to-end authoring → run → commit on Playwright Java (~18 weeks)  
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-26
 
 ---
 
@@ -22,8 +22,8 @@
 | M3 | Playwright Java Adapter | ✅ Complete | Transpile, prerequisites, Maven `run()` |
 | M4 | AI Test Studio | ✅ Complete | Prompt → stream → proposal → apply |
 | M5 | Execution Engine | ✅ Complete | Run tests, timeline, Executions screen |
-| M6 | Git Integration | ⏳ Pending | Status, diff, commit modal, push |
-| M7 | Polish & Error States | ⏳ Pending | Offline, prerequisites, auto-update |
+| M6 | Git Integration | ✅ Complete | Status, diff, commit modal, push, branch selector |
+| M7 | Polish & Error States | ✅ Complete | All S-01..S-12, auto-update, virtual tree, a11y |
 | **MVP** | Closed beta | ⏳ Pending | Full happy path shipped |
 
 ---
@@ -138,20 +138,59 @@
 
 ## M6 — Git Integration (EPIC 6)
 
-- [ ] Working tree status + left panel Git Changes
-- [ ] Diff viewer + CommitModal
-- [ ] Commit & push (never `--force`)
-- [ ] `packages/git-engine`
+### Phase 1–2 — Engine + IPC ✅
+
+- [x] `packages/git-engine` — status (porcelain), diff, commit, push, list branches
+- [x] Git engine unit tests (temp repo fixture)
+- [x] IPC DTOs — `GitChangeDto`, `GitStatusDto`, `DiffLineDto`, commit/push requests
+- [x] IPC commands — `git:get-status`, `git:get-diff`, `git:commit`, `git:push`, `git:list-branches`
+- [x] `GitService` + handlers wired in desktop container
+- [x] `semantic.proposal.applied` → refresh git status + `git.status.changed` event
+- [x] `GitOperationError` in `@verity/core`
+
+### Phase 3 — Status UI ✅
+
+- [x] Renderer `git-store` + event bindings
+- [x] Left panel Git Changes section
+- [x] Toolbar change counter chip + branch pill
+- [x] Git Activity bottom tab
+
+### Phase 4 — Commit flow ✅
+
+- [x] `CommitModal` — file list, inline diff, message input, file selection
+- [x] Commit & Push wired to IPC (`git:commit` → `git:push`)
+- [x] Branch pill in toolbar (read-only)
+- [x] Post-apply toast: "Applied — review in Git Changes"
+
+### Phase 5 — Polish ✅
+
+- [x] Branch selector dropdown (E6-S4) + `git:checkout-branch`
+- [x] Error state S-06 merge conflict banner (Git Changes + CommitModal)
+- [x] Error state S-07 push rejected inline (CommitModal, commit-succeeded-locally path)
+- [x] Settings → Git Integration section (author, branch prefix, save)
+- [x] Backend E2E: apply → git status → commit → branch create
+
+### Original checklist
+
+- [x] Working tree status + left panel Git Changes
+- [x] Diff viewer + CommitModal
+- [x] Commit & push (never `--force`)
+- [x] `packages/git-engine`
 
 ---
 
 ## M7 — Polish (EPIC 7)
 
-- [ ] Error states S-01 … S-12
-- [ ] Offline / no API key banner
-- [ ] Full prerequisite checker
-- [ ] `electron-updater`
-- [ ] Perf (virtualized file tree) + a11y pass
+- [x] Error states S-01, S-02, S-03, S-05, S-10, S-12
+- [x] S-04 AI generation error banner in AI Studio
+- [x] S-06 merge conflict banner (Git Changes + CommitModal)
+- [x] S-07 push rejected inline (CommitModal)
+- [x] S-08 Run prerequisite gate — banner + modal + ⌘R/Ctrl+R shortcut
+- [x] S-09 empty executions history state
+- [x] S-11 AI offline / no API key banner (`OfflineBanner` + `ai:get-capabilities`)
+- [x] `electron-updater` — `UpdateService`, IPC `app:*-update`, `UpdateBanner`
+- [x] Virtualized file tree (`flattenVisibleFileTree` + windowed render >60 rows)
+- [x] A11y — ActivityRail `aria-label`, modals `role="dialog"`, file tree `role="tree"`
 
 ---
 
@@ -190,6 +229,7 @@ verity/
 │   ├── semantic-model/   # YAML v1 schema R/W       ✅
 │   ├── adapter-contract/ # TestAdapter ACL          ✅
 │   ├── adapter-playwright-java/ # M3 transpiler      ✅
+│   ├── git-engine/              # M6 git CLI wrapper   ✅
 │   └── repository-intelligence/ # detectors, parsers ✅
 ├── apps/desktop/src/main/services/
 │   ├── repository-connector-service.ts  ✅
@@ -200,8 +240,8 @@ verity/
 └── PROGRESS.md           # This file                ✅
 ```
 
-**Planned packages (not yet created):** `git-engine`
-**Added:** `adapter-playwright-typescript`, `toolchain`, `ai-orchestration`, `execution-engine`
+**Planned packages (not yet created):** _(none — git-engine added)_
+**Added:** `adapter-playwright-typescript`, `toolchain`, `ai-orchestration`, `execution-engine`, `git-engine`
 
 ---
 
@@ -209,6 +249,11 @@ verity/
 
 | Date | Change |
 |------|--------|
+| 2026-06-26 | **M7 complete** — S-01..S-12, electron-updater, virtual file tree, a11y pass |
+| 2026-06-26 | **M7 partial** — S-04/08/09 error states, Run prerequisite gate, ⌘R shortcut |
+| 2026-06-26 | **M6 complete** — Phase 5 polish, branch selector, S-06/S-07, Settings Git, E2E git flow |
+| 2026-06-26 | **M7 partial** — S-11 offline banner, `ai:get-capabilities` IPC |
+| 2026-06-26 | **M6 Phase 1–2** — `git-engine` package, IPC `git:*` commands, `GitService`, proposal→status hook |
 | 2026-06-24 | **M5** — Execution engine, Maven run, timeline, Executions screen, run persistence |
 | 2026-06-24 | **M4** — AI Test Studio: prompt, streaming steps, apply/discard, reasoning panel |
 | 2026-06-24 | **M2 E2-S4** — Workspace Repository file tree (IDE explorer), read-only Editor tab, live tree fallback + auto-index |

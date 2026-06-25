@@ -5,6 +5,10 @@ import type { CommandHandler, IPCRouter } from './ipc-router.js';
 
 const IMPLEMENTED_CHANNELS = new Set<CommandChannel>([
   'app:ping',
+  'app:get-update-status',
+  'app:check-for-updates',
+  'app:download-update',
+  'app:install-update',
   'project:create',
   'project:create-draft',
   'project:list',
@@ -48,12 +52,19 @@ const IMPLEMENTED_CHANNELS = new Set<CommandChannel>([
   'semantic:discard-proposal',
   'semantic:get-proposal',
   'ai:generate',
+  'ai:get-capabilities',
   'execution:run',
   'execution:cancel',
   'execution:get',
   'execution:list',
   'adapter:list',
   'adapter:check-prerequisites',
+  'git:get-status',
+  'git:get-diff',
+  'git:commit',
+  'git:push',
+  'git:list-branches',
+  'git:checkout-branch',
 ]);
 
 /**

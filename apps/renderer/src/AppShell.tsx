@@ -8,6 +8,8 @@ import { VerityError } from '@verity/core';
 import { invoke, on } from './ipc/client.js';
 import { useToast } from './store/toast-store.js';
 import { ToastHost } from './components/ToastHost.js';
+import { OfflineBanner } from './components/OfflineBanner.js';
+import { UpdateBanner } from './components/UpdateBanner.js';
 import { WelcomeScreen } from './screens/Welcome/WelcomeScreen.js';
 import { WorkspaceScreen } from './screens/Workspace/WorkspaceScreen.js';
 import { ProjectsScreen } from './screens/Projects/ProjectsScreen.js';
@@ -66,6 +68,12 @@ export function AppShell() {
       {showChrome && isMac ? <TitleBarDragRegion /> : null}
       {showChrome && <ActivityRail />}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        {showChrome ? (
+          <>
+            <UpdateBanner />
+            <OfflineBanner />
+          </>
+        ) : null}
         {route === 'welcome' && <WelcomeScreen />}
         {route === 'create' && <CreateProjectScreen />}
         {route === 'workspace' && <WorkspaceScreen project={active} />}

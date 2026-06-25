@@ -8,6 +8,8 @@ import type { IProjectService } from './services/project-service.js';
 import type { IRepositoryWatcherService } from './services/repository-watcher-service.js';
 import type { ISemanticModelService } from './services/semantic-model-service.js';
 import type { IExecutionService } from './services/execution-service.js';
+import type { IGitService } from './services/git-service.js';
+import type { IUpdateService } from './services/update-service.js';
 import type { IWorkspaceEntryService } from './services/workspace-entry-service.js';
 import { createToken } from './service-container.js';
 
@@ -27,5 +29,7 @@ export const Tokens = {
   SemanticModelService: createToken<ISemanticModelService>('SemanticModelService'),
   AiService: createToken<IAiService>('AiService'),
   ExecutionService: createToken<IExecutionService>('ExecutionService'),
+  GitService: createToken<IGitService>('GitService'),
+  UpdateService: createToken<IUpdateService>('UpdateService'),
   WorkspaceEntry: createToken<IWorkspaceEntryService>('WorkspaceEntry'),
 } as const;

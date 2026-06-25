@@ -13,6 +13,7 @@ import { Pill } from '../../components/Pill.js';
 import type { FolderInspectionDto, MigrationPlanDto, PrerequisiteReportDto } from '@verity/core/ipc';
 import { PrerequisiteCheckList } from '../../components/PrerequisiteCheckList.js';
 import { EnvironmentSetupList, FrameworkCatalogPicker } from '../../components/FrameworkIntelligence.js';
+import { InlineErrorAlert } from '../../components/InlineErrorAlert.js';
 import { invoke } from '../../ipc/client.js';
 import { useProjects } from '../../store/project-store.js';
 import { useRouter, type WizardMode } from '../../store/router-store.js';
@@ -99,6 +100,8 @@ export function CreateProjectScreen(): React.ReactElement {
   const [envSetup, setEnvSetup] = useState<EnvironmentSetupResultDto | null>(null);
   const [toolchainBusy, setToolchainBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [oauthNotice, setOauthNotice] = useState(false);
+  const [repoConnectError, setRepoConnectError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -195,9 +198,12 @@ export function CreateProjectScreen(): React.ReactElement {
         localPath,
       });
       setProject(updated);
+      setRepoConnectError(null);
       return true;
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Could not connect folder', 'err');
+      const message = error instanceof Error ? error.message : 'Could not connect folder';
+      setRepoConnectError(message);
+      toast(message, 'err');
       return false;
     }
   }, [project, localPath, toast]);
@@ -612,8 +618,15 @@ export function CreateProjectScreen(): React.ReactElement {
                     <button
                       key={s.id}
                       type="button"
-                      disabled={!s.enabled}
-                      onClick={() => s.enabled && setSource(s.id)}
+                      aria-disabled={!s.enabled}
+                      onClick={() => {
+                        if (!s.enabled) {
+                          setOauthNotice(true);
+                          return;
+                        }
+                        setOauthNotice(false);
+                        setSource(s.id);
+                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -653,6 +666,22 @@ export function CreateProjectScreen(): React.ReactElement {
                     </button>
                   ))}
                 </div>
+              ) : null}
+              {oauthNotice ? (
+                <InlineErrorAlert
+                  code="S-01"
+                  title="Remote repository auth unavailable"
+                  message="GitHub, GitLab, and Bitbucket OAuth are not connected yet. Use Local Folder to open a repository from disk."
+                  tone="info"
+                />
+              ) : null}
+              {repoConnectError ? (
+                <InlineErrorAlert
+                  code="S-01"
+                  title="Repository not connected"
+                  message={repoConnectError}
+                  tone="err"
+                />
               ) : null}
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--t1)', marginBottom: 8 }}>
                 {wizardMode === 'greenfield' ? 'Project location' : 'Repository folder'}
@@ -780,24 +809,19 @@ export function CreateProjectScreen(): React.ReactElement {
                             : 'Reading build files, dependencies and test structure…'}
               </p>
               <DetectionIcon done={detPhase === 2} failed={detPhase === 'failed'} />
-              {detPhase === 'failed' && detError && (
-                <div
-                  style={{
-                    maxWidth: 380,
-                    margin: '0 auto 16px',
-                    padding: '12px 14px',
-                    background: 'rgba(239,91,91,0.08)',
-                    border: '1px solid rgba(239,91,91,0.35)',
-                    borderRadius: 9,
-                    fontSize: 12.5,
-                    color: 'var(--t1)',
-                    textAlign: 'left',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {detError}
+              {detPhase === 'failed' ? (
+                <div style={{ maxWidth: 420, margin: '0 auto 16px', textAlign: 'left' }}>
+                  <InlineErrorAlert
+                    code="S-02"
+                    title="Framework not detected"
+                    message={
+                      detError ??
+                      'Verity could not identify a supported test framework in this folder. Try a Playwright or Selenium Java repository, or pick another path.'
+                    }
+                    tone="err"
+                  />
                 </div>
-              )}
+              ) : null}
               {framework && detPhase === 2 && wizardMode !== 'migrate' && (
                 <FrameworkRows framework={framework} fwDisplay={fwDisplay} />
               )}
@@ -1277,6 +1301,16 @@ function AnalysisStep({
         </div>
       </div>
       <ScoreRing score={anaPhase === 2 ? score : Math.min(score, 40)} done={anaPhase === 2} />
+      {anaPhase === 2 && score < 60 ? (
+        <div style={{ marginTop: 14, textAlign: 'left' }}>
+          <InlineErrorAlert
+            code="S-03"
+            title="Low repository understanding"
+            message={`Verity scored this repository at ${Math.round(score)}%. Add page objects, tests, or documentation so AI can generate better steps.`}
+            tone="warn"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

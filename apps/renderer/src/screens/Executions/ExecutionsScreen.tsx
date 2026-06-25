@@ -30,8 +30,21 @@ export function ExecutionsScreen({ project }: { project: Project | null }): Reac
         ) : loading && runs.length === 0 ? (
           <div style={{ color: 'var(--t2)', fontSize: 13 }}>Loading runs…</div>
         ) : runs.length === 0 ? (
-          <div style={{ color: 'var(--t2)', fontSize: 13, lineHeight: '20px' }}>
-            No executions yet. Apply a semantic test in AI Studio, then run it from the workspace.
+          <div
+            style={{
+              padding: 16,
+              borderRadius: 10,
+              background: 'var(--bg1)',
+              border: '1px dashed var(--b1)',
+              color: 'var(--t2)',
+              fontSize: 13,
+              lineHeight: '20px',
+            }}
+          >
+            <strong style={{ color: 'var(--t1)' }}>S-09 — No executions yet</strong>
+            <div style={{ marginTop: 6 }}>
+              Apply a semantic test in AI Studio, then run it from the workspace toolbar (⌘R / Ctrl+R).
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

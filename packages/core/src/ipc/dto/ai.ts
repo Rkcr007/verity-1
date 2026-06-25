@@ -23,6 +23,13 @@ export interface AiGenerateResponse {
   readonly proposalId: ProposalId;
 }
 
+export type AiGenerationMode = 'llm' | 'rules';
+
+export interface AiCapabilitiesResponse {
+  readonly llmAvailable: boolean;
+  readonly mode: AiGenerationMode;
+}
+
 /** Partial step streamed during generation before the proposal is complete. */
 export interface AiGenerationStepPayload {
   readonly sessionId: string;

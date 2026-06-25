@@ -15,11 +15,20 @@ export function registerHandlers(router: IPCRouter, container: ServiceContainer)
   const semantic = () => container.resolve(Tokens.SemanticModelService);
   const ai = () => container.resolve(Tokens.AiService);
   const execution = () => container.resolve(Tokens.ExecutionService);
+  const git = () => container.resolve(Tokens.GitService);
+  const updates = () => container.resolve(Tokens.UpdateService);
   const entry = () => container.resolve(Tokens.WorkspaceEntry);
 
   router.handle('app:ping', () => {
     projects().list();
     return { pong: true as const, version: app.getVersion() };
+  });
+
+  router.handle('app:get-update-status', () => updates().getStatus());
+  router.handle('app:check-for-updates', () => updates().checkForUpdates());
+  router.handle('app:download-update', () => updates().downloadUpdate());
+  router.handle('app:install-update', () => {
+    updates().installUpdate();
   });
 
   router.handle('project:create', (request) => projects().create(request));
@@ -113,6 +122,7 @@ export function registerHandlers(router: IPCRouter, container: ServiceContainer)
   );
 
   router.handle('ai:generate', (request) => ai().generate(request));
+  router.handle('ai:get-capabilities', () => ai().getCapabilities());
 
   router.handle('execution:run', (request) => ({
     runId: execution().run(request),
@@ -122,6 +132,13 @@ export function registerHandlers(router: IPCRouter, container: ServiceContainer)
   });
   router.handle('execution:get', (request) => execution().get(request));
   router.handle('execution:list', (request) => execution().list(request));
+
+  router.handle('git:get-status', (request) => git().getStatus(request));
+  router.handle('git:get-diff', (request) => git().getDiff(request));
+  router.handle('git:commit', (request) => git().commit(request));
+  router.handle('git:push', (request) => git().push(request));
+  router.handle('git:list-branches', (request) => git().listBranches(request));
+  router.handle('git:checkout-branch', (request) => git().checkoutBranch(request));
 
   const adapters = () => container.resolve(Tokens.AdapterRegistry);
 

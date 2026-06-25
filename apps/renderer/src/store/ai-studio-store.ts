@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ProposalId, WorkspaceId } from '@verity/core';
+import { VerityError, type ProposalId, type WorkspaceId } from '@verity/core';
 import type {
   ReasoningEntryDto,
   SemanticProposalDto,
@@ -19,6 +19,7 @@ interface AiStudioState {
   reasoning: readonly ReasoningEntryDto[];
   showCode: boolean;
   generating: boolean;
+  generationError: string | null;
   setPrompt: (prompt: string) => void;
   setShowCode: (show: boolean) => void;
   generate: (projectId: WorkspaceId, prompt: string) => Promise<void>;
@@ -38,6 +39,7 @@ export const useAiStudioStore = create<AiStudioState>((set, get) => ({
   reasoning: [],
   showCode: false,
   generating: false,
+  generationError: null,
 
   setPrompt: (prompt) => set({ prompt }),
   setShowCode: (show) => set({ showCode: show }),
@@ -50,6 +52,7 @@ export const useAiStudioStore = create<AiStudioState>((set, get) => ({
       phase: 'thinking',
       prompt: trimmed,
       generating: true,
+      generationError: null,
       streamingSteps: [],
       reasoning: [],
       proposal: null,
@@ -60,8 +63,14 @@ export const useAiStudioStore = create<AiStudioState>((set, get) => ({
     try {
       const { sessionId, proposalId } = await invoke('ai:generate', { projectId, prompt: trimmed });
       set({ sessionId, proposalId, phase: 'streaming' });
-    } catch {
-      set({ phase: 'idle', generating: false });
+    } catch (error) {
+      const message =
+        error instanceof VerityError
+          ? error.userMessage
+          : error instanceof Error
+            ? error.message
+            : 'AI generation failed';
+      set({ phase: 'idle', generating: false, generationError: message });
     }
   },
 
@@ -110,6 +119,7 @@ export const useAiStudioStore = create<AiStudioState>((set, get) => ({
       reasoning: [],
       showCode: false,
       generating: false,
+      generationError: null,
     }),
 }));
 
@@ -144,6 +154,7 @@ export function bindAiStudioEvents(projectId: WorkspaceId): () => void {
       streamingSteps: [...event.payload.proposal.test.steps],
       phase: 'proposed',
       generating: false,
+      generationError: null,
     });
   });
 

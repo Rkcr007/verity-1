@@ -9,11 +9,14 @@ import type {
 } from '@verity/core/ipc';
 import { AdapterBadge } from '../../components/AdapterBadge.js';
 import { ChromeScreenHeader } from '../../components/ChromeScreenHeader.js';
+import { ErrorStateBanner } from '../../components/ErrorStateBanner.js';
+import { InlineErrorAlert } from '../../components/InlineErrorAlert.js';
 import { IC, Icon } from '../../components/Icon.js';
 import { Pill } from '../../components/Pill.js';
 import { invoke } from '../../ipc/client.js';
 import { on } from '../../ipc/client.js';
 import { useRouter } from '../../store/router-store.js';
+import { useIndexingStore } from '../../store/indexing-store.js';
 import { formatFramework, formatRepoSlug } from '../../utils/display.js';
 
 type MemoryTab = 'pages' | 'flows' | 'locators' | 'intel';
@@ -37,6 +40,13 @@ export function MemoryScreen({ project }: { project: Project | null }): React.Re
   const [flows, setFlows] = useState<readonly BusinessFlowDto[]>([]);
   const [locators, setLocators] = useState<readonly LocatorDto[]>([]);
   const [loading, setLoading] = useState(false);
+  const indexing = useIndexingStore((s) => (project ? s.isIndexing(project.id) : false));
+  const bindIndexingEvents = useIndexingStore((s) => s.bindIndexingEvents);
+
+  useEffect(() => {
+    if (!project) return;
+    return bindIndexingEvents(project.id);
+  }, [project, bindIndexingEvents]);
 
   const load = useCallback(async (): Promise<void> => {
     if (!project) return;
@@ -76,6 +86,14 @@ export function MemoryScreen({ project }: { project: Project | null }): React.Re
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {indexing ? (
+        <ErrorStateBanner
+          code="S-10"
+          title="Re-indexing repository"
+          message="Updating pages, flows, and locators from the latest file changes."
+          tone="info"
+        />
+      ) : null}
       <ChromeScreenHeader>
         <Icon d={IC.mem} size={16} stroke="var(--ai)" />
         <span style={{ fontSize: 14, fontWeight: 700 }}>AI Memory</span>
@@ -132,6 +150,16 @@ export function MemoryScreen({ project }: { project: Project | null }): React.Re
               flows={summary?.flowCount ?? 0}
               locators={summary?.locatorCount ?? 0}
             />
+            {score > 0 && score < 60 ? (
+              <div style={{ margin: '14px 0' }}>
+                <InlineErrorAlert
+                  code="S-03"
+                  title="Low understanding score"
+                  message={`Verity understands ${Math.round(score)}% of this repository. Add tests, page objects, or README context to improve AI accuracy.`}
+                  tone="warn"
+                />
+              </div>
+            ) : null}
 
             <div
               style={{

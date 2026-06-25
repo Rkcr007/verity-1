@@ -1,19 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Project } from '@verity/core';
 import { GitMark } from '../../components/GitMark.js';
 import { ChromeHomeButton } from '../../components/ChromeHomeButton.js';
+import { BranchSelector } from '../../components/BranchSelector.js';
+import { ErrorStateBanner } from '../../components/ErrorStateBanner.js';
+import { OfflineBanner } from '../../components/OfflineBanner.js';
+import { Icon, IC } from '../../components/Icon.js';
 import { useAiStudioStore } from '../../store/ai-studio-store.js';
 import { bindExecutionEvents, useExecutionStore } from '../../store/execution-store.js';
+import { bindGitEvents, useGitStore } from '../../store/git-store.js';
+import { useWorkspacePrereqStore } from '../../store/workspace-prereq-store.js';
+import { invoke } from '../../ipc/client.js';
 import { useRouter } from '../../store/router-store.js';
 import { useSemanticStore } from '../../store/semantic-store.js';
+import { useToast } from '../../store/toast-store.js';
 import { useWorkspaceExplorer } from '../../store/workspace-explorer-store.js';
 import { formatFramework, formatRepoSlug, formatWorkspaceStatus } from '../../utils/display.js';
 import { AiStudioPanel } from './AiStudioPanel.js';
+import { CommitModal } from './CommitModal.js';
 import { FilePreviewPanel } from './FilePreviewPanel.js';
+import { PrerequisiteGateModal } from './PrerequisiteGateModal.js';
 import { WorkspaceLeftPanel } from './WorkspaceLeftPanel.js';
 
 type CenterTab = 'browser' | 'editor' | 'timeline';
-type BottomTab = 'reasoning' | 'execution';
+type BottomTab = 'reasoning' | 'execution' | 'git';
 
 /**
  * Workspace layout — explorer, editor/browser, AI Studio, execution timeline.
@@ -43,20 +53,74 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
   const reasoning = useAiStudioStore((s) => s.reasoning);
   const resetAi = useAiStudioStore((s) => s.reset);
 
+  const toast = useToast((s) => s.show);
+  const [branchPrefix, setBranchPrefix] = useState('verity/');
+  const gitStatus = useGitStore((s) => s.status);
+  const gitChanges = gitStatus?.changes ?? [];
+  const gitActivity = useGitStore((s) => s.activity);
+  const commitModalOpen = useGitStore((s) => s.commitModalOpen);
+  const loadGitStatus = useGitStore((s) => s.loadStatus);
+  const openCommitModal = useGitStore((s) => s.openCommitModal);
+  const closeCommitModal = useGitStore((s) => s.closeCommitModal);
+  const resetGit = useGitStore((s) => s.reset);
+
+  const prereqReport = useWorkspacePrereqStore((s) => s.report);
+  const prereqLoading = useWorkspacePrereqStore((s) => s.loading);
+  const prereqInstallBusy = useWorkspacePrereqStore((s) => s.installBusy);
+  const loadPrereqs = useWorkspacePrereqStore((s) => s.load);
+  const installToolchain = useWorkspacePrereqStore((s) => s.installToolchain);
+  const resetPrereqs = useWorkspacePrereqStore((s) => s.reset);
+
   const [centerTab, setCenterTab] = useState<CenterTab>('browser');
   const [bottomTab, setBottomTab] = useState<BottomTab>('reasoning');
+  const [prereqModalOpen, setPrereqModalOpen] = useState(false);
 
   useEffect(() => {
     clearSelection();
     resetExplorer();
     resetExecution();
     resetAi();
-  }, [project?.id, clearSelection, resetExplorer, resetExecution, resetAi]);
+    resetGit();
+    resetPrereqs();
+  }, [project?.id, clearSelection, resetExplorer, resetExecution, resetAi, resetGit, resetPrereqs]);
 
   useEffect(() => {
     if (!project) return;
-    return bindExecutionEvents(project.id);
-  }, [project?.id]);
+    void loadGitStatus(project.id);
+    void loadPrereqs(project.id);
+    void invoke('settings:get', { projectId: project.id }).then((settings) => {
+      setBranchPrefix(settings.git.branchPrefix);
+    });
+    const offExec = bindExecutionEvents(project.id);
+    const offGit = bindGitEvents(project.id, toast);
+    return () => {
+      offExec();
+      offGit();
+    };
+  }, [project?.id, loadGitStatus, loadPrereqs, toast]);
+
+  const runTarget = project ? (selectedSlug ?? selectedTest?.id ?? null) : null;
+
+  const handleRun = useCallback((): void => {
+    if (!project || !runTarget || running) return;
+    if (prereqReport && !prereqReport.ready) {
+      setPrereqModalOpen(true);
+      return;
+    }
+    setBottomTab('execution');
+    void runTest(project.id, runTarget).then(() => loadTests(project.id));
+  }, [project, runTarget, running, prereqReport, runTest, loadTests]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        handleRun();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleRun]);
 
   useEffect(() => {
     if (selectedPath) setCenterTab('editor');
@@ -104,7 +168,6 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
   }
 
   const fw = formatFramework(project.framework);
-  const runTarget = selectedSlug ?? selectedTest?.id ?? null;
 
   const handleSelectTest = (slug: string): void => {
     if (selectedSlug === slug) {
@@ -114,14 +177,46 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
     void selectTest(project.id, slug);
   };
 
-  const handleRun = (): void => {
-    if (!runTarget || running) return;
-    setBottomTab('execution');
-    void runTest(project.id, runTarget).then(() => loadTests(project.id));
+  const handleInstallToolchain = (): void => {
+    void installToolchain(project.framework.adapterId).then((ready) => {
+      toast(ready ? 'Toolchain installed — re-checking…' : 'Review install steps in Settings', ready ? 'info' : 'err');
+      void loadPrereqs(project.id);
+    });
   };
+
+  const prereqsReady = prereqReport?.ready ?? true;
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <OfflineBanner />
+      {!prereqLoading && prereqReport && !prereqsReady ? (
+        <ErrorStateBanner
+          code="S-08"
+          title="Test runner not ready"
+          message="Install JDK/Maven or Playwright browsers before running tests."
+          tone="err"
+          action={
+            <button
+              type="button"
+              onClick={() => setPrereqModalOpen(true)}
+              style={{
+                height: 28,
+                padding: '0 10px',
+                border: '1px solid var(--err)',
+                borderRadius: 7,
+                background: 'transparent',
+                color: 'var(--err)',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Fix environment
+            </button>
+          }
+        />
+      ) : null}
       <div
         style={{
           height: 40,
@@ -142,12 +237,43 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
         <span style={{ fontSize: 11.5, color: 'var(--t2)' }}>
           {fw.name} · {fw.version}
         </span>
+        {gitStatus ? (
+          <BranchSelector
+            projectId={project.id}
+            branch={gitStatus.branch}
+            branchPrefix={branchPrefix}
+          />
+        ) : null}
         <div style={{ flex: 1 }} />
+        {gitChanges.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => openCommitModal()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 26,
+              padding: '0 11px',
+              background: 'var(--bg2)',
+              border: '1px solid var(--b2)',
+              borderRadius: 7,
+              color: 'var(--t0)',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Icon d={IC.git} size={13} stroke="var(--mod, #E0A33A)" />
+            {gitChanges.length} changes
+          </button>
+        ) : null}
         {runTarget ? (
           <button
             type="button"
             onClick={handleRun}
             disabled={running}
+            title={!prereqsReady ? 'Environment not ready (S-08) — click for details' : 'Run test (⌘R)'}
             style={{
               height: 28,
               padding: '0 12px',
@@ -281,6 +407,12 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
             active={bottomTab === 'execution'}
             onClick={() => setBottomTab('execution')}
           />
+          <BottomTabButton
+            label="Git Activity"
+            active={bottomTab === 'git'}
+            onClick={() => setBottomTab('git')}
+            {...(gitChanges.length > 0 ? { badge: String(gitChanges.length) } : {})}
+          />
         </div>
         <div
           style={{
@@ -313,28 +445,90 @@ export function WorkspaceScreen({ project }: { project: Project | null }) {
                 </div>
               ))
             )
-          ) : execLogs.length === 0 ? (
-            <span style={{ color: 'var(--t3)' }}>Run a semantic test to see execution output.</span>
+          ) : bottomTab === 'execution' ? (
+            execLogs.length === 0 ? (
+              <span style={{ color: 'var(--t3)' }}>Run a semantic test to see execution output.</span>
+            ) : (
+              execLogs.map((log, i) => (
+                <div
+                  key={`${log.timestamp}-${i}`}
+                  style={{
+                    color:
+                      log.type === 'error'
+                        ? 'var(--err)'
+                        : log.type === 'success'
+                          ? 'var(--ok)'
+                          : 'var(--t2)',
+                    marginBottom: 4,
+                  }}
+                >
+                  {log.message}
+                </div>
+              ))
+            )
+          ) : gitActivity.length === 0 && gitChanges.length === 0 ? (
+            <span style={{ color: 'var(--t3)' }}>Git activity appears when you apply changes or commit.</span>
           ) : (
-            execLogs.map((log, i) => (
-              <div
-                key={`${log.timestamp}-${i}`}
-                style={{
-                  color:
-                    log.type === 'error'
-                      ? 'var(--err)'
-                      : log.type === 'success'
-                        ? 'var(--ok)'
-                        : 'var(--t2)',
-                  marginBottom: 4,
-                }}
-              >
-                {log.message}
-              </div>
-            ))
+            <>
+              {gitChanges.length > 0 ? (
+                <>
+                  <div style={{ color: 'var(--t1)', marginBottom: 4 }}>$ git status</div>
+                  {gitChanges.map((change) => (
+                    <div
+                      key={change.path}
+                      style={{
+                        color: change.type === 'A' ? 'var(--ok)' : 'var(--mod, #E0A33A)',
+                        marginBottom: 2,
+                      }}
+                    >
+                      {change.type === 'A' ? 'new file:' : change.type === 'D' ? 'deleted:' : 'modified:'}{' '}
+                      {change.path}
+                    </div>
+                  ))}
+                </>
+              ) : null}
+              {gitActivity.map((entry, i) => (
+                <div
+                  key={`${entry.timestamp}-${i}`}
+                  style={{
+                    color:
+                      entry.type === 'error'
+                        ? 'var(--err)'
+                        : entry.type === 'success'
+                          ? 'var(--ok)'
+                          : 'var(--t2)',
+                    marginTop: 6,
+                  }}
+                >
+                  {entry.message}
+                </div>
+              ))}
+            </>
           )}
         </div>
       </div>
+
+      {commitModalOpen && gitChanges.length > 0 ? (
+        <CommitModal
+          project={project}
+          changes={gitChanges}
+          branch={gitStatus?.branch ?? 'main'}
+          onClose={closeCommitModal}
+        />
+      ) : null}
+
+      {prereqModalOpen && prereqReport && !prereqReport.ready ? (
+        <PrerequisiteGateModal
+          report={prereqReport}
+          installBusy={prereqInstallBusy}
+          onClose={() => setPrereqModalOpen(false)}
+          onInstallToolchain={handleInstallToolchain}
+          onOpenSettings={() => {
+            setPrereqModalOpen(false);
+            go('settings');
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -450,10 +644,12 @@ function BottomTabButton({
   label,
   active,
   onClick,
+  badge,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  badge?: string;
 }): React.ReactElement {
   return (
     <button
@@ -469,9 +665,26 @@ function BottomTabButton({
         fontSize: 11,
         fontWeight: 600,
         cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
       }}
     >
       {label}
+      {badge ? (
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            padding: '1px 5px',
+            borderRadius: 8,
+            background: 'var(--mod, #E0A33A)',
+            color: 'var(--bg0)',
+          }}
+        >
+          {badge}
+        </span>
+      ) : null}
     </button>
   );
 }

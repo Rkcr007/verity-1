@@ -25,6 +25,8 @@ export const IC = {
   target: 'M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2',
   layers: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
   home: 'M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V9.5z',
+  git: 'M6 3v12M6 15a3 3 0 106 0M18 9a3 3 0 10-6 0M12 9v6',
+  file: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6',
 } as const;
 
 export type IconName = keyof typeof IC;

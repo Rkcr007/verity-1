@@ -1,3 +1,5 @@
+export type { AppUpdateStatusDto, UpdateState } from './app.js';
+
 export type {
   OAuthProvider,
   ConnectLocalRepositoryRequest,
@@ -59,6 +61,8 @@ export type {
   ReasoningEntryDto,
   AiGenerateRequest,
   AiGenerateResponse,
+  AiCapabilitiesResponse,
+  AiGenerationMode,
   AiGenerationStepPayload,
 } from './ai.js';
 
@@ -90,6 +94,18 @@ export type {
 
 export type {
   GitChangeType,
+  GitChangeDto,
+  GitStatusDto,
+  GitGetDiffRequest,
+  GitGetDiffResponse,
+  DiffLineKind,
+  DiffLineDto,
+  GitCommitRequest,
+  GitCommitResponse,
+  GitPushRequest,
+  GitPushResponse,
+  GitListBranchesResponse,
+  GitCheckoutBranchRequest,
   GitStatusChangedPayload,
   GitCommittedPayload,
   GitPushedPayload,

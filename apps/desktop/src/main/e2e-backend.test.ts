@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -43,6 +44,14 @@ public class LoginTest {
   void userCanLogin() {}
 }`;
 
+function initGitRepo(root: string): void {
+  execSync('git init -b main', { cwd: root, stdio: 'pipe' });
+  execSync('git config user.email "e2e@verity.local"', { cwd: root, stdio: 'pipe' });
+  execSync('git config user.name "Verity E2E"', { cwd: root, stdio: 'pipe' });
+  execSync('git add .', { cwd: root, stdio: 'pipe' });
+  execSync('git commit -m "init"', { cwd: root, stdio: 'pipe' });
+}
+
 function seedRepo(root: string): void {
   writeFileSync(join(root, 'pom.xml'), SAMPLE_POM);
   mkdirSync(join(root, 'src', 'test', 'java', 'pages'), { recursive: true });
@@ -60,6 +69,7 @@ describe('backend E2E flow', () => {
     repoRoot = mkdtempSync(join(tmpdir(), 'verity-e2e-repo-'));
     dbPath = join(mkdtempSync(join(tmpdir(), 'verity-e2e-db-')), 'verity.db');
     seedRepo(repoRoot);
+    initGitRepo(repoRoot);
     container = buildContainer({ dbPath });
   });
 
@@ -145,5 +155,60 @@ describe('backend E2E flow', () => {
 
     semantic.delete(draft.id, 'login-smoke-001');
     assert.equal(semantic.list(draft.id).length, 0);
+  });
+
+  it('runs apply → git status → commit flow (M6 E2E)', async () => {
+    const projects = container.resolve(Tokens.ProjectService);
+    const repo = container.resolve(Tokens.RepositoryConnector);
+    const semantic = container.resolve(Tokens.SemanticModelService);
+    const git = container.resolve(Tokens.GitService);
+    const ai = container.resolve(Tokens.AiService);
+
+    const draft = projects.createDraft('Git E2E Workspace');
+    repo.connectLocal(draft.id, repoRoot);
+
+    const generated = ai.generate({
+      projectId: draft.id,
+      prompt: 'Add checkout smoke test',
+    });
+
+    for (let i = 0; i < 40; i += 1) {
+      await delay(150);
+      try {
+        const proposal = semantic.getProposal(draft.id, generated.proposalId);
+        if (proposal.status === 'draft' && proposal.test.steps.length > 0) {
+          semantic.applyProposal({ projectId: draft.id, proposalId: generated.proposalId });
+          break;
+        }
+        if (proposal.status === 'applied') break;
+      } catch {
+        // proposal not ready yet
+      }
+    }
+
+    const statusBefore = await git.getStatus({ projectId: draft.id });
+    assert.ok(statusBefore.changes.length > 0, 'expected working tree changes after apply');
+
+    const paths = statusBefore.changes.map((change) => change.path);
+    const commit = await git.commit({
+      projectId: draft.id,
+      message: 'test: e2e semantic apply',
+      files: paths,
+    });
+    assert.ok(commit.commitSha.length > 0);
+
+    const statusAfter = await git.getStatus({ projectId: draft.id });
+    assert.equal(statusAfter.changes.length, 0);
+
+    const branches = await git.listBranches({ projectId: draft.id });
+    assert.ok(branches.branches.includes('main'));
+
+    const featureBranch = 'verity/e2e-feature';
+    const switched = await git.checkoutBranch({
+      projectId: draft.id,
+      branch: featureBranch,
+      create: true,
+    });
+    assert.equal(switched.branch, featureBranch);
   });
 });

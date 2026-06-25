@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Project } from '@verity/core';
 import type { SemanticStepDto, SemanticTestDto } from '@verity/core/ipc';
+import { ErrorStateBanner } from '../../components/ErrorStateBanner.js';
+import { InlineErrorAlert } from '../../components/InlineErrorAlert.js';
 import { IC, Icon } from '../../components/Icon.js';
 import { Pill } from '../../components/Pill.js';
 import { invoke } from '../../ipc/client.js';
@@ -30,6 +32,7 @@ export function AiStudioPanel({
   const streamingSteps = useAiStudioStore((s) => s.streamingSteps);
   const proposal = useAiStudioStore((s) => s.proposal);
   const generating = useAiStudioStore((s) => s.generating);
+  const generationError = useAiStudioStore((s) => s.generationError);
   const showCode = useAiStudioStore((s) => s.showCode);
   const setPrompt = useAiStudioStore((s) => s.setPrompt);
   const setShowCode = useAiStudioStore((s) => s.setShowCode);
@@ -93,6 +96,15 @@ export function AiStudioPanel({
           </Pill>
         ) : null}
       </div>
+
+      {generationError ? (
+        <ErrorStateBanner
+          code="S-04"
+          title="AI generation failed"
+          message={generationError}
+          tone="err"
+        />
+      ) : null}
 
       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--b0)' }}>
         <textarea
@@ -250,7 +262,7 @@ export function AiStudioPanel({
 
       {phase === 'applied' ? (
         <div style={{ padding: 12, borderTop: '1px solid var(--b0)', fontSize: 12, color: 'var(--ok)' }}>
-          Applied to repository. Run the test from the workspace toolbar.
+          Applied to repository — review changes in Git Changes, then commit from the toolbar.
         </div>
       ) : null}
     </div>
@@ -266,15 +278,27 @@ function Placeholder({ message }: { message: string }): React.ReactElement {
 }
 
 function SemanticStepCard({ step }: { step: SemanticStepDto }): React.ReactElement {
+  const zeroConfidence = step.confidence <= 0;
+
   return (
     <div
       style={{
         padding: '10px 12px',
         background: 'var(--bg2)',
-        border: '1px solid var(--b1)',
+        border: `1px solid ${zeroConfidence ? 'rgba(224, 163, 58, 0.35)' : 'var(--b1)'}`,
         borderRadius: 8,
       }}
     >
+      {zeroConfidence ? (
+        <div style={{ marginBottom: 8 }}>
+          <InlineErrorAlert
+            code="S-12"
+            title="Zero-confidence locator"
+            message="This step has no reliable locator match. Edit the step or regenerate after improving repository context."
+            tone="warn"
+          />
+        </div>
+      ) : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <span
           style={{

@@ -4,9 +4,14 @@ import type { SemanticTestSummaryDto } from '@verity/core/ipc';
 import { AdapterBadge } from '../../components/AdapterBadge.js';
 import { IC } from '../../components/Icon.js';
 import { Pill } from '../../components/Pill.js';
+import { ErrorStateBanner } from '../../components/ErrorStateBanner.js';
+import { InlineErrorAlert } from '../../components/InlineErrorAlert.js';
 import { RepositoryFileTree } from '../../components/RepositoryFileTree.js';
 import { Section } from '../../components/Section.js';
+import { GitChangeRow } from '../../components/GitChangeRow.js';
 import { on } from '../../ipc/client.js';
+import { useGitStore } from '../../store/git-store.js';
+import { useIndexingStore } from '../../store/indexing-store.js';
 import { useSemanticStore } from '../../store/semantic-store.js';
 import { useWorkspaceExplorer } from '../../store/workspace-explorer-store.js';
 import { formatFramework } from '../../utils/display.js';
@@ -41,7 +46,17 @@ export function WorkspaceLeftPanel({
   const selectFile = useWorkspaceExplorer((s) => s.selectFile);
   const clearFileSelection = useWorkspaceExplorer((s) => s.clearFileSelection);
 
-  const [secOpen, setSecOpen] = useState({ repo: true, fw: true, sem: true });
+  const gitChanges = useGitStore((s) => s.status?.changes ?? []);
+  const gitLoading = useGitStore((s) => s.loading);
+  const gitError = useGitStore((s) => s.error);
+  const hasMergeConflicts = useGitStore((s) => s.status?.hasMergeConflicts ?? false);
+  const openCommitModal = useGitStore((s) => s.openCommitModal);
+
+  const [secOpen, setSecOpen] = useState({ repo: true, fw: true, sem: true, git: true });
+  const indexing = useIndexingStore((s) => s.isIndexing(project.id));
+  const bindIndexingEvents = useIndexingStore((s) => s.bindIndexingEvents);
+
+  useEffect(() => bindIndexingEvents(project.id), [project.id, bindIndexingEvents]);
 
   const refreshTree = useCallback(() => {
     void loadFileTree(project.id);
@@ -80,9 +95,15 @@ export function WorkspaceLeftPanel({
     const offUpdated = on('semantic.test.updated', (event) => {
       if (event.payload.projectId === project.id) refreshTests();
     });
+    const offGit = on('git.status.changed', (event) => {
+      if (event.payload.projectId === project.id && event.payload.changeCount > 0) {
+        setSecOpen((s) => ({ ...s, git: true }));
+      }
+    });
     return () => {
       offCreated();
       offUpdated();
+      offGit();
     };
   }, [project.id, refreshTests]);
 
@@ -98,6 +119,8 @@ export function WorkspaceLeftPanel({
   const fw = formatFramework(project.framework);
   const repoPath = project.repository.path;
   const repoLabel = repoPath ? repoPath.split(/[/\\]/).pop() ?? repoPath : 'Not connected';
+  const understandingScore = project.stats.understandingScore ?? 0;
+  const noIndexedTests = project.stats.tests === 0 && tests.length === 0 && !loading;
 
   return (
     <div
@@ -111,6 +134,14 @@ export function WorkspaceLeftPanel({
         overflow: 'hidden',
       }}
     >
+      {indexing ? (
+        <ErrorStateBanner
+          code="S-10"
+          title="Re-indexing repository"
+          message="File changes detected — refreshing intelligence index. AI context may be briefly stale."
+          tone="info"
+        />
+      ) : null}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <Section
           icon={IC.folder}
@@ -178,6 +209,14 @@ export function WorkspaceLeftPanel({
             <div style={{ fontSize: 11, color: 'var(--t2)', lineHeight: '15px' }}>
               {project.stats.pages} pages · {project.stats.tests} tests indexed
             </div>
+            {understandingScore > 0 && understandingScore < 60 ? (
+              <InlineErrorAlert
+                code="S-03"
+                title="Low understanding score"
+                message={`Repository understanding is ${Math.round(understandingScore)}%. Enrich page objects or tests for better AI suggestions.`}
+                tone="warn"
+              />
+            ) : null}
             <div style={{ fontSize: 10.5, color: 'var(--t3)', lineHeight: '15px' }}>
               Page objects, tests, and utilities appear in Repository above. AI uses this structure
               for context — like Cursor reading your workspace.
@@ -198,6 +237,15 @@ export function WorkspaceLeftPanel({
         >
           {loading && tests.length === 0 ? (
             <div style={{ padding: '8px', fontSize: 11.5, color: 'var(--t2)' }}>Loading…</div>
+          ) : noIndexedTests ? (
+            <div style={{ padding: '8px' }}>
+              <InlineErrorAlert
+                code="S-05"
+                title="No tests found"
+                message="This repository has no indexed automated tests yet. Use AI Test Studio to author semantic tests, or add tests to your repo and re-run analysis."
+                tone="info"
+              />
+            </div>
           ) : tests.length === 0 ? (
             <div style={{ padding: '8px', fontSize: 11.5, color: 'var(--t2)', lineHeight: '16px' }}>
               No semantic tests yet. AI Test Studio (M4) will create tests here as{' '}
@@ -210,6 +258,56 @@ export function WorkspaceLeftPanel({
                 test={test}
                 selected={selectedSlug === test.slug}
                 onSelect={() => handleSelectTest(test.slug)}
+              />
+            ))
+          )}
+        </Section>
+
+        <Section
+          icon={IC.git}
+          title="Git Changes"
+          right={
+            gitChanges.length > 0 ? (
+              <Pill color="var(--mod, #E0A33A)" background="var(--bg3)" border="rgba(224, 163, 58, 0.3)">
+                {gitChanges.length}
+              </Pill>
+            ) : null
+          }
+          open={secOpen.git}
+          onToggle={() => setSecOpen((s) => ({ ...s, git: !s.git }))}
+        >
+          {hasMergeConflicts ? (
+            <div
+              style={{
+                margin: '4px 8px 8px',
+                padding: '8px 10px',
+                borderRadius: 7,
+                background: 'rgba(229, 100, 94, 0.12)',
+                border: '1px solid rgba(229, 100, 94, 0.3)',
+                color: 'var(--err)',
+                fontSize: 11,
+                lineHeight: '15px',
+              }}
+            >
+              Merge conflicts detected (S-06). Resolve in your editor before committing.
+            </div>
+          ) : null}
+          {gitLoading && gitChanges.length === 0 ? (
+            <div style={{ padding: '8px', fontSize: 11.5, color: 'var(--t2)' }}>Loading…</div>
+          ) : gitError ? (
+            <div style={{ padding: '8px', fontSize: 11.5, color: 'var(--err)', lineHeight: '16px' }}>
+              {gitError}
+            </div>
+          ) : gitChanges.length === 0 ? (
+            <div style={{ padding: '8px', fontSize: 11.5, color: 'var(--t2)', lineHeight: '16px' }}>
+              No pending changes. Apply an AI proposal to create files in your working tree.
+            </div>
+          ) : (
+            gitChanges.map((change) => (
+              <GitChangeRow
+                key={change.path}
+                change={change}
+                onSelect={() => openCommitModal(change.path)}
               />
             ))
           )}

@@ -114,3 +114,16 @@ export class NotImplementedError extends VerityError {
     this.name = 'NotImplementedError';
   }
 }
+
+/** Thrown when a git CLI operation fails or is rejected. */
+export class GitOperationError extends VerityError {
+  constructor(userMessage: string, detail?: string) {
+    super({
+      code: 'GIT_OPERATION_FAILED',
+      userMessage,
+      recoverable: true,
+      ...(detail ? { detail } : {}),
+    });
+    this.name = 'GitOperationError';
+  }
+}

@@ -24,11 +24,13 @@
     "@verity/ai-orchestration": "workspace:*",
     "@verity/core": "workspace:*",
     "@verity/execution-engine": "workspace:*",
+    "@verity/git-engine": "workspace:*",
     "@verity/local-persistence": "workspace:*",
     "@verity/repository-intelligence": "workspace:*",
     "@verity/semantic-model": "workspace:*",
     "@verity/toolchain": "workspace:*",
-    "better-sqlite3": "^11.3.0"
+    "better-sqlite3": "^11.3.0",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",

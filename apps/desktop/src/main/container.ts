@@ -10,6 +10,8 @@ import { AiService } from './services/ai-service.js';
 import { RepositoryWatcherService } from './services/repository-watcher-service.js';
 import { ProjectService } from './services/project-service.js';
 import { ExecutionService } from './services/execution-service.js';
+import { GitService } from './services/git-service.js';
+import { UpdateService } from './services/update-service.js';
 import { WorkspaceEntryService } from './services/workspace-entry-service.js';
 import { Tokens } from './tokens.js';
 
@@ -107,6 +109,14 @@ export function buildContainer(options: ContainerOptions = {}): ServiceContainer
         c.resolve(Tokens.RunRepository),
         c.resolve(Tokens.EventBus),
       );
+    })
+    .register(Tokens.GitService, (c) => {
+      return new GitService(c.resolve(Tokens.ProjectService), c.resolve(Tokens.EventBus));
+    })
+    .register(Tokens.UpdateService, () => {
+      const service = new UpdateService();
+      service.init();
+      return service;
     })
     .register(Tokens.WorkspaceEntry, (c) => {
       const demoAssets = join(__dirname, '../../assets/demo-shop-e2e');

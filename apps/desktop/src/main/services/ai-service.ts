@@ -13,6 +13,7 @@ import type { ISemanticModelService } from './semantic-model-service.js';
  */
 export interface IAiService {
   generate(request: AiGenerateRequest): AiGenerateResponse;
+  getCapabilities(): { llmAvailable: boolean; mode: 'llm' | 'rules' };
 }
 
 export class AiService implements IAiService {
@@ -42,6 +43,11 @@ export class AiService implements IAiService {
     void this.runGeneration(request, sessionId, proposalId, project.framework.adapterId);
 
     return { sessionId, proposalId };
+  }
+
+  getCapabilities(): { llmAvailable: boolean; mode: 'llm' | 'rules' } {
+    const llmAvailable = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+    return { llmAvailable, mode: llmAvailable ? 'llm' : 'rules' };
   }
 
   private async runGeneration(

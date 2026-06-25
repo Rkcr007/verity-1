@@ -18,7 +18,8 @@ export function ActivityRail() {
   const go = useRouter((s) => s.go);
 
   return (
-    <div
+    <nav
+      aria-label="Main navigation"
       style={{
         width: 52,
         flexShrink: 0,
@@ -34,7 +35,16 @@ export function ActivityRail() {
       }}
     >
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Home — back to start"
         onClick={() => go('welcome')}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            go('welcome');
+          }
+        }}
         title="Home — back to start"
         style={{
           width: 32,
@@ -57,7 +67,10 @@ export function ActivityRail() {
         return (
           <button
             key={n.id}
+            type="button"
             title={n.label}
+            aria-label={n.label}
+            aria-current={on ? 'page' : undefined}
             onClick={() => go(n.id)}
             style={{
               position: 'relative',
@@ -108,6 +121,6 @@ export function ActivityRail() {
       >
         R
       </div>
-    </div>
+    </nav>
   );
 }
